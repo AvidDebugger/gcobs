@@ -1,1 +1,3 @@
 rootProject.name = 'gcobs'
+
+include('benchmarks:benchmark-noop-jmh')

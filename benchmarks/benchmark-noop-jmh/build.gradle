@@ -1,0 +1,9 @@
+plugins {
+    id('java')
+    id 'me.champeau.jmh' version "${jmhPluginVersion}"
+}
+
+dependencies {
+    jmh("org.openjdk.jmh:jmh-core:${jmhVersion}")
+    jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:${jmhVersion}")
+}

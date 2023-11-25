@@ -6,6 +6,8 @@ group = 'net.szumigaj.gcobs'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '17'
 
-repositories {
-	mavenCentral()
+subprojects {
+    repositories {
+        mavenCentral()
+    }
 }
