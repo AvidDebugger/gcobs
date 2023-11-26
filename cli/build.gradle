@@ -1,0 +1,22 @@
+plugins {
+    id("java")
+    id("application")
+}
+
+application {
+    mainClassName = 'net.szumigaj.gcobs.cli.GcobsCli'
+}
+
+dependencies {
+    implementation("info.picocli:picocli:${picocliVersion}")
+    annotationProcessor("info.picocli:picocli-codegen:${picocliVersion}")
+
+    // Testing
+    testImplementation("org.junit.jupiter:junit-jupiter:${jUnitVersion}")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${jUnitVersion}")
+    testImplementation("org.assertj:assertj-core:${assertjVersion}")
+}
+
+test {
+    useJUnit()
+}

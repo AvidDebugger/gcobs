@@ -1,3 +1,7 @@
-rootProject.name = 'gcobs'
+rootProject.name = "gcobs"
 
-include('benchmarks:benchmark-noop-jmh')
+// CLI
+include(":cli")
+
+// Benchmarks
+include("benchmarks:benchmark-noop-jmh")
