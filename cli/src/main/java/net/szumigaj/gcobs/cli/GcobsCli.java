@@ -1,24 +1,25 @@
 package net.szumigaj.gcobs.cli;
 
+import io.micronaut.configuration.picocli.PicocliRunner;
+import net.szumigaj.gcobs.cli.command.RunExecuteCommand;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
-import java.util.concurrent.Callable;
 
 @Command(name = "gcobs",
          mixinStandardHelpOptions = true,
          version = "gcobs 0.0.1",
          description = "Java GC Observatory",
          subcommands = {
+            RunExecuteCommand.class,
          })
-public class GcobsCli implements Callable<Integer> {
+public class GcobsCli implements Runnable {
 
     public static void main(String[] args) {
-        System.exit(new CommandLine(new GcobsCli()).execute(args));
+        PicocliRunner.run(GcobsCli.class, args);
     }
 
     @Override
-    public Integer call() {
+    public void run() {
         CommandLine.usage(this, System.out);
-        return 0;
     }
 }

@@ -1,22 +1,46 @@
 plugins {
-    id("java")
-    id("application")
+    id("io.micronaut.application") version "4.2.0"
+    id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 application {
-    mainClassName = 'net.szumigaj.gcobs.cli.GcobsCli'
+    mainClassName = "net.szumigaj.gcobs.cli.GcobsCli"
+}
+
+micronaut {
+    testRuntime("junit5")
+    processing {
+        incremental(true)
+        annotations("net.szumigaj.gcobs.cli.*")
+    }
 }
 
 dependencies {
-    implementation("info.picocli:picocli:${picocliVersion}")
-    annotationProcessor("info.picocli:picocli-codegen:${picocliVersion}")
+    // Utils
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
+    testCompileOnly("org.projectlombok:lombok")
+    testAnnotationProcessor("org.projectlombok:lombok")
+
+    // Micronaut
+    annotationProcessor("io.micronaut:micronaut-inject-java")
+    implementation("io.micronaut.picocli:micronaut-picocli")
+
+    // CLI
+    implementation("info.picocli:picocli")
+    annotationProcessor("info.picocli:picocli-codegen")
+
+    // YAML parsing
+    implementation("com.fasterxml.jackson.dataformat:jackson-dataformat-yaml")
+    implementation("com.fasterxml.jackson.core:jackson-databind")
+    implementation("com.fasterxml.jackson.core:jackson-core")
+
+    // Logging
+    runtimeOnly("ch.qos.logback:logback-classic")
 
     // Testing
-    testImplementation("org.junit.jupiter:junit-jupiter:${jUnitVersion}")
-    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine:${jUnitVersion}")
-    testImplementation("org.assertj:assertj-core:${assertjVersion}")
-}
-
-test {
-    useJUnit()
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+    testImplementation("org.assertj:assertj-core")
 }

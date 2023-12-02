@@ -1,0 +1,64 @@
+metadata:
+  name: merge-test
+
+jvm:
+  args:
+    - "-Xms384m"
+    - "-Xmx384m"
+  env:
+    JAVA_HOME: "/usr/lib/jvm/java-17"
+    SHARED_KEY: "top-level-value"
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 10
+  forks: 3
+  threads: 2
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+  timeseries:
+    enabled: false
+
+benchmarks:
+  - id: inherits-all
+    description: Inherits all top-level defaults
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+
+  - id: overrides-jvm
+    description: Overrides jvm.args (replaces) and jvm.env (merges)
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+    jvm:
+      args:
+        - "-XX:+UseZGC"
+        - "-Xms512m"
+        - "-Xmx512m"
+      env:
+        SHARED_KEY: "bench-level-value"
+        BENCH_ONLY: "extra"
+
+  - id: overrides-jmh
+    description: Overrides some JMH fields, inherits others
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+    jmh:
+      forks: 1
+      threads: 4
+
+  - id: overrides-observability
+    description: Overrides observability fields
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+    observability:
+      jfr:
+        enabled: false
+      timeseries:
+        enabled: true

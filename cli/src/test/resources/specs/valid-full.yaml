@@ -1,0 +1,108 @@
+metadata:
+  name: full-test-spec
+  description: Full spec with all fields populated
+  labels:
+    team: platform
+    env: ci
+
+run:
+  profile: invariant
+  runId: test-run-001
+  runsDir: runs/
+  validation:
+    onMissingMetric: fail
+    minParseCoveragePct: 95
+
+jvm:
+  args:
+    - "-Xms256m"
+    - "-Xmx256m"
+    - "-XX:+UseG1GC"
+  env:
+    JAVA_HOME: "/usr/lib/jvm/java-17"
+    GC_TUNING: "true"
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 10
+  forks: 3
+  threads: 2
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+  gcLog:
+    tags: "gc*,safepoint*,gc+promotion"
+  timeseries:
+    enabled: false
+  phaseBoundaries:
+    enabled: false
+
+output:
+  formats:
+    - json
+    - csv
+    - markdown
+  consoleTable: true
+
+benchmarks:
+  - id: noop-g1
+    description: Noop workload with G1GC
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+    jvm:
+      args:
+        - "-XX:+UseG1GC"
+        - "-Xms512m"
+        - "-Xmx512m"
+      env:
+        EXTRA_FLAG: "noop"
+    jmh:
+      includes: ".*NoopKernel.*"
+      warmupIterations: 3
+      forks: 2
+    params:
+      batchSize: "1000"
+    observability:
+      jfr:
+        enabled: true
+        settings: default
+      timeseries:
+        enabled: true
+    thresholds:
+      gcOverheadMaxPct: 5.0
+      gcPauseP95MaxMs: 50.0
+      gcPauseP99MaxMs: 100.0
+      gcPauseMaxMs: 200.0
+      gcFullCountMax: 0
+      gcAllocationStallsMax: 0
+      heapPeakUsedMaxMb: 512
+      jmhScoreRegressionMaxPct: 10.0
+      gcCpuMaxPct: 10.0
+      gcSystemGcCountMax: 0
+      metaspaceUsedMaxMb: 256
+
+  - id: noop-zgc
+    description: Noop workload with ZGC
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+    jvm:
+      args:
+        - "-XX:+UseZGC"
+        - "-Xms128m"
+        - "-Xmx128m"
+
+compare:
+  pairs:
+    - id: g1-vs-zgc
+      base: noop-g1
+      candidate: noop-zgc
+      description: Compare G1 noop vs ZGC noop
+      metrics:
+        - name: gcOverheadPct
+          regressionThresholdPct: 20.0
+        - name: gcPauseP99Ms
+          regressionThresholdAbsolute: 50.0

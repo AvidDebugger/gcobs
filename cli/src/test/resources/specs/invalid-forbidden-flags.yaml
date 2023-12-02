@@ -1,0 +1,14 @@
+metadata:
+  name: bad-flags
+jvm:
+  args:
+    - "-Xms256m"
+    - "-Xlog:gc*:file=gc.log"
+benchmarks:
+  - id: noop-g1
+    source:
+      type: internal
+      module: benchmark-noop-jmh
+    jvm:
+      args:
+        - "-XX:StartFlightRecording=filename=test.jfr"

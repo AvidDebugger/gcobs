@@ -1,0 +1,7 @@
+metadata:
+  name: bad-apiversion
+benchmarks:
+  - id: noop-g1
+    source:
+      type: internal
+      module: benchmark-noop-jmh

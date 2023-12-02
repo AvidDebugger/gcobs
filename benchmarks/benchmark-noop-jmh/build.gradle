@@ -7,3 +7,48 @@ dependencies {
     jmh("org.openjdk.jmh:jmh-core:${jmhVersion}")
     jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:${jmhVersion}")
 }
+
+jmh {
+    warmupIterations.set(5)
+    iterations.set(5)
+    fork.set(3)
+    resultFormat.set("JSON")
+}
+
+tasks.register("runJmh", JavaExec) {
+    dependsOn("jmhJar")
+    mainClass.set("org.openjdk.jmh.Main")
+    classpath = files(tasks.named("jmhJar").map { it.outputs.files })
+
+    // gcobs passes these via -P flags
+    def jvmArgsAppend = (project.findProperty("jvmArgsAppend")?.toString()?.split(/\|\|\|/) ?: []) as List
+    def includes = project.findProperty("includes")?.toString() ?: ""
+    def warmup = project.findProperty("warmupIterations")?.toString() ?: "5"
+    def measurement = project.findProperty("measurementIterations")?.toString() ?: "5"
+    def forks = project.findProperty("forks")?.toString() ?: "3"
+    def threads = project.findProperty("threads")?.toString() ?: "1"
+    def outputFile = project.findProperty("outputFile")?.toString() ?: "jmh-results.json"
+    def params = project.findProperty("params")?.toString() ?: ""
+
+    args = []
+    if (includes) {
+        args += ["-f", forks, includes]
+    } else {
+        args += ["-f", forks]
+    }
+    args += ["-wi", warmup]
+    args += ["-i", measurement]
+    args += ["-t", threads]
+    args += ["-rf", "json"]
+    args += ["-rff", outputFile]
+
+    if (jvmArgsAppend && !jvmArgsAppend.isEmpty()) {
+        args += ["-jvmArgsAppend", jvmArgsAppend.join(" ")]
+    }
+
+    if (params) {
+        params.split(",").each { p ->
+            args += ["-p", p]
+        }
+    }
+}
