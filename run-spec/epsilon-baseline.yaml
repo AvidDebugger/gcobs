@@ -59,3 +59,17 @@ benchmarks:
       sleepMs: 0
     thresholds:
       gcFullCountMax: 0
+
+compare:
+  pairs:
+    - id: epsilon-vs-g1
+      base: epsilon-noop
+      candidate: g1-noop
+      description: |
+        Compare G1GC overhead vs theoretical minimum.
+        REGRESSION if G1 score > epsilon score * 1.5 (GC overhead > 33% of total time)
+      metrics:
+        - name: jmhScore
+          regressionThresholdPct: 50.0
+        - name: gcOverheadPct
+          regressionThresholdAbsolute: 20
