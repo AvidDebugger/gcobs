@@ -1,0 +1,10 @@
+[0ms] Using ZGC
+[100ms] GC(0) Pause Mark Start 0.015ms
+[200ms] GC(0) Pause Mark End 0.008ms
+[300ms] GC(0) Pause Relocate Start 0.012ms
+[500ms] GC(1) Pause Mark Start 0.010ms
+[600ms] GC(1) Pause Mark End 0.007ms
+[700ms] GC(1) Pause Relocate Start 0.009ms
+[1000ms] GC(2) Pause Mark Start 0.020ms
+[1100ms] GC(2) Pause Mark End 0.006ms
+[1200ms] GC(2) Pause Relocate Start 0.011ms

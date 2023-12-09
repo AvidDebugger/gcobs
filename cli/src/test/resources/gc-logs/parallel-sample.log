@@ -1,0 +1,9 @@
+[0ms] Using Parallel
+[150ms] GC(0) Pause Young (Allocation Failure)
+[150ms] GC(0) Pause Young (Allocation Failure) 20M->4M(128M) 8.200ms
+[400ms] GC(1) Pause Young (Allocation Failure)
+[400ms] GC(1) Pause Young (Allocation Failure) 24M->6M(128M) 6.100ms
+[700ms] GC(2) Pause Full (Ergonomics)
+[700ms] GC(2) Pause Full (Ergonomics) 64M->12M(128M) 35.500ms
+[1000ms] GC(3) Pause Young (Allocation Failure)
+[1000ms] GC(3) Pause Young (Allocation Failure) 28M->5M(128M) 5.300ms

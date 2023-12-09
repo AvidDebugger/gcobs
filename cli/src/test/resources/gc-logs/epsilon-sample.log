@@ -1,0 +1,5 @@
+[0ms] Using Epsilon
+[500ms][info   ][gc               ] Heap: 256M reserved, 64M (25,00%) committed, 32M (12,50%) used
+[500ms][info   ][gc,metaspace     ] Metaspace: 1088M reserved, 6656K (0,60%) committed, 6522K (0,59%) used
+[1000ms][info   ][gc               ] Heap: 256M reserved, 128M (50,00%) committed, 96M (37,50%) used
+[1000ms][info   ][gc,metaspace     ] Metaspace: 1088M reserved, 6656K (0,60%) committed, 6522K (0,59%) used

@@ -1,0 +1,11 @@
+[0ms] Using G1
+[100ms] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 5.432ms
+[250ms] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 32M->12M(256M) 3.210ms
+[500ms] GC(2) Pause Young (Concurrent Start) (G1 Humongous Allocation) 48M->16M(256M) 7.891ms
+[800ms] GC(3) Pause Mixed (Normal) (G1 Evacuation Pause) 64M->20M(256M) 12.345ms
+[1200ms] GC(4) Pause Full (Allocation Failure) (G1 Evacuation Pause) 128M->32M(256M) 45.678ms
+[1200ms] Safepoint "G1CollectForAllocation", Time since last: 7650988 ns, Reaching safepoint: 50000 ns, At safepoint: 500000 ns, Total: 550000 ns
+[1500ms] GC(5) Pause Young (Normal) (G1 Evacuation Pause) 40M->10M(256M) 2.100ms
+[1500ms] Safepoint "G1CollectForAllocation", Time since last: 7650988 ns, Reaching safepoint: 80000 ns, At safepoint: 400000 ns, Total: 480000 ns
+[2000ms] GC(6) Pause Young (Normal) (G1 Evacuation Pause) 36M->8M(256M) 4.500ms
+[2000ms] Safepoint "G1CollectForAllocation", Time since last: 7650988 ns, Reaching safepoint: 30000 ns, At safepoint: 300000 ns, Total: 330000 ns
