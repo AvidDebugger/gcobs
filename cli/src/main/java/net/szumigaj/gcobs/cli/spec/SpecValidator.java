@@ -198,14 +198,14 @@ public class SpecValidator {
 
     private void validateJmhMinValues(JmhConfig jmh, String prefix,
                                       List<ValidationError> errors) {
-        if (jmh.warmupIterations() != null && jmh.warmupIterations() < 1) {
+        if (jmh.warmupIterations() != null && jmh.warmupIterations() < 0) {
             errors.add(new ValidationError(prefix + ".warmupIterations",
-                    "warmupIterations must be >= 1",
+                    "warmupIterations must be >= 0",
                     "found: " + jmh.warmupIterations()));
         }
-        if (jmh.measurementIterations() != null && jmh.measurementIterations() < 1) {
+        if (jmh.measurementIterations() != null && jmh.measurementIterations() < 0) {
             errors.add(new ValidationError(prefix + ".measurementIterations",
-                    "measurementIterations must be >= 1",
+                    "measurementIterations must be >= 0",
                     "found: " + jmh.measurementIterations()));
         }
         if (jmh.forks() != null && jmh.forks() < 1) {

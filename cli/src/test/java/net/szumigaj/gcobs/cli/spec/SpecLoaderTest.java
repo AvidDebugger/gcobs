@@ -65,8 +65,8 @@ class SpecLoaderTest {
 
         // compare
         assertThat(spec.compare().pairs()).hasSize(1);
-        assertThat(spec.compare().pairs().get(0).base()).isEqualTo("noop-g1");
-        assertThat(spec.compare().pairs().get(0).candidate()).isEqualTo("noop-zgc");
+        assertThat(spec.compare().pairs().get(0).base()).isEqualTo("ephemeral-g1");
+        assertThat(spec.compare().pairs().get(0).candidate()).isEqualTo("ephemeral-zgc");
         assertThat(spec.compare().pairs().get(0).metrics()).hasSize(2);
     }
 
@@ -75,8 +75,6 @@ class SpecLoaderTest {
         // Create a temp spec with an unknown field
         Path tempSpec = Files.createTempFile("spec-unknown-", ".yaml");
         Files.writeString(tempSpec, """
-                apiVersion: gcobs/v2
-                kind: BenchmarkRun
                 metadata:
                   name: test-unknown
                 unknownTopLevel: should-be-ignored
@@ -89,7 +87,6 @@ class SpecLoaderTest {
                 """);
 
         BenchmarkRunSpec spec = loader.load(tempSpec);
-        assertThat(spec.apiVersion()).isEqualTo("gcobs/v2");
         assertThat(spec.benchmarks()).hasSize(1);
 
         Files.deleteIfExists(tempSpec);

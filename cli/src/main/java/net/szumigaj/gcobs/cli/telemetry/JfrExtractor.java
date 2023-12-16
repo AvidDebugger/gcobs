@@ -1,6 +1,7 @@
 package net.szumigaj.gcobs.cli.telemetry;
 
-import jakarta.annotation.Nullable;
+import jakarta.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.model.*;
 import jdk.jfr.consumer.RecordedEvent;
 import jdk.jfr.consumer.RecordingFile;
@@ -17,6 +18,8 @@ import java.util.stream.Stream;
  * Reads all profile-*.jfr files in a benchmark directory, aggregates across forks,
  * and writes jfr-summary.json (schemaVersion: 1).
  */
+@Slf4j
+@Singleton
 public class JfrExtractor {
 
     // VM flag keys to extract as effective flags
@@ -32,7 +35,7 @@ public class JfrExtractor {
      *
      * @return the JfrSummary, or null if no JFR files found
      */
-    public static JfrSummary extract(Path benchDir, String benchmarkId, String runId)
+    public JfrSummary extract(Path benchDir, String benchmarkId, String runId)
             throws IOException {
         List<Path> jfrFiles;
         try (Stream<Path> files = Files.list(benchDir)) {
@@ -71,7 +74,7 @@ public class JfrExtractor {
         return summary;
     }
 
-    private static ForkData extractFork(Path jfrFile) throws IOException {
+    private ForkData extractFork(Path jfrFile) throws IOException {
         ForkData data = new ForkData();
         try (RecordingFile rf = new RecordingFile(jfrFile)) {
             while (rf.hasMoreEvents()) {
@@ -91,7 +94,7 @@ public class JfrExtractor {
         return data;
     }
 
-    private static void handleGcEvent(RecordedEvent event, ForkData data) {
+    private void handleGcEvent(RecordedEvent event, ForkData data) {
         data.gcCount++;
         Duration duration = event.getDuration("duration");
         double pauseMs = duration.toNanos() / 1_000_000.0;
@@ -99,7 +102,7 @@ public class JfrExtractor {
         data.longestPauseMs = Math.max(data.longestPauseMs, pauseMs);
     }
 
-    private static void handleHeapSummary(RecordedEvent event, ForkData data) {
+    private void handleHeapSummary(RecordedEvent event, ForkData data) {
         try {
             long heapUsed = event.getLong("heapUsed");
             data.peakHeapUsedBytes = Math.max(data.peakHeapUsedBytes, heapUsed);
@@ -108,7 +111,7 @@ public class JfrExtractor {
         }
     }
 
-    private static void handleSafepoint(RecordedEvent event, ForkData data) {
+    private void handleSafepoint(RecordedEvent event, ForkData data) {
         data.safepointCount++;
         try {
             Duration ttsp = event.getDuration("totalTimeToSafepoint");
@@ -121,7 +124,7 @@ public class JfrExtractor {
         }
     }
 
-    private static void handleSystemProperty(RecordedEvent event, ForkData data) {
+    private void handleSystemProperty(RecordedEvent event, ForkData data) {
         try {
             String key = event.getString("key");
             String value = event.getString("value");
@@ -133,7 +136,7 @@ public class JfrExtractor {
         }
     }
 
-    private static JfrSummary.JfrSummaryBuilder aggregate(List<ForkData> forks,
+    private JfrSummary.JfrSummaryBuilder aggregate(List<ForkData> forks,
                                                           String benchmarkId, String runId) {
         JfrSummary.JfrSummaryBuilder summaryBuilder = JfrSummary.builder()
                 .benchmarkId(benchmarkId)
@@ -190,7 +193,7 @@ public class JfrExtractor {
         return summaryBuilder;
     }
 
-    private static JvmErgonomics extractErgonomics(Map<String, String> props) {
+    private JvmErgonomics extractErgonomics(Map<String, String> props) {
         if (props.isEmpty()) {
             return null;
         }
@@ -223,8 +226,7 @@ public class JfrExtractor {
         return jvmErgonomicsBuilder.build();
     }
 
-    @Nullable
-    private static String detectGcAlgorithm(Map<String, String> props) {
+    private String detectGcAlgorithm(Map<String, String> props) {
         String gcAlgorithm = null;
         for (Map.Entry<String, String> entry : props.entrySet()) {
             String key = entry.getKey();
@@ -245,7 +247,7 @@ public class JfrExtractor {
         return gcAlgorithm;
     }
 
-    private static Integer parseIntProperty(Map<String, String> props, String key) {
+    private Integer parseIntProperty(Map<String, String> props, String key) {
         String value = props.get(key);
         if (value == null) {
             return null;
@@ -257,7 +259,7 @@ public class JfrExtractor {
         }
     }
 
-    static class ForkData {
+    private static class ForkData {
         int gcCount;
         double totalPauseMs;
         double longestPauseMs;

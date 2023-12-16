@@ -1,5 +1,7 @@
 package net.szumigaj.gcobs.cli.telemetry;
 
+import jakarta.inject.Singleton;
+import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.model.*;
 
 import java.io.IOException;
@@ -17,13 +19,15 @@ import java.util.stream.Collectors;
  * Regex-based GC log parser. Reads merged gc.log (produced by BenchmarkExecutor.mergeGcLogs),
  * extracts pause events, safepoint metrics, heap stats, and writes gc-summary.json.
  */
+@Slf4j
+@Singleton
 public class GcAnalyzer {
 
     // GC Pause events: handles both G1 format (two paren groups) and Parallel/Serial (one paren group)
     // G1:       Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 5.432ms
     // Parallel: Pause Young (Allocation Failure) 20M->4M(128M) 8.200ms
     private static final Pattern GC_PAUSE = Pattern.compile(
-            "Pause (Young|Mixed|Full).*?\\(([^)]+)\\)(?:.*?\\(([^)]+)\\))?.*?(\\d+)M->(\\d+)M\\((\\d+)M\\).*?([0-9.]+)ms");
+            "Pause (Young|Mixed|Full).*?\\(([^)]+)\\)(?:.*?\\(([^)]+)\\))?.*?(\\d+)M->(\\d+)M\\((\\d+)M\\).*?([0-9.,]+)ms");
 
     // ZGC STW pauses: Pause Mark Start|Mark End|Relocate Start N.Nms
     private static final Pattern ZGC_PAUSE = Pattern.compile(
@@ -51,7 +55,7 @@ public class GcAnalyzer {
      *
      * @return the populated GcSummary (also written to disk)
      */
-    public static GcSummary analyze(Path benchDir, String benchmarkId, String runId)
+    public GcSummary analyze(Path benchDir, String benchmarkId, String runId)
             throws IOException {
         Path gcLog = benchDir.resolve("gc.log");
         GcSummary.GcSummaryBuilder summaryBuilder = GcSummary.builder()
@@ -76,95 +80,38 @@ public class GcAnalyzer {
         return summary;
     }
 
-    static ParseResult parseLines(List<String> lines) {
+    private ParseResult parseLines(List<String> lines) {
         ParseResult r = new ParseResult();
         int eventSeq = 0;
+        long currentForkMaxUptime = 0;
+        long totalDurationMs = 0;
 
         for (String line : lines) {
-            if (line.isEmpty() || FORK_MARKER.matcher(line).find()) {
+            if (line.isEmpty()) {
                 continue;
             }
+
+            if (FORK_MARKER.matcher(line).find()) {
+                totalDurationMs = handleForkMarker(currentForkMaxUptime, totalDurationMs);
+                currentForkMaxUptime = 0;
+                continue;
+            }
+
             r.totalLines++;
-            boolean matched = false;
+            long uptime = extractUptime(line);
+            currentForkMaxUptime = Math.max(currentForkMaxUptime, uptime);
 
-            // Extract uptime from any line with [NNNms] prefix
-            Matcher uptimeMatcher = UPTIME.matcher(line);
-            if (uptimeMatcher.find()) {
-                long ms = Long.parseLong(uptimeMatcher.group(1));
-                r.maxUptimeMs = Math.max(r.maxUptimeMs, ms);
-            }
+            boolean matched = tryParseGcAlgorithm(line, r)
+                    || tryParseSafepointTtsp(line, r)
+                    || tryParsePromotionFailure(line, r);
 
-            // GC algorithm detection
-            Matcher algoMatcher = GC_ALGORITHM.matcher(line);
-            if (algoMatcher.find()) {
-                r.gcAlgorithm = algoMatcher.group(1);
-                matched = true;
-            }
-
-            // Standard GC pause (G1/Parallel/Serial)
-            Matcher pauseMatcher = GC_PAUSE.matcher(line);
-            if (pauseMatcher.find()) {
-                String type = pauseMatcher.group(1);
-                // G1 has two paren groups (qualifier + cause), Parallel has one (cause only)
-                String cause = pauseMatcher.group(3) != null ? pauseMatcher.group(3) : pauseMatcher.group(2);
-                int beforeMb = Integer.parseInt(pauseMatcher.group(4));
-                int afterMb = Integer.parseInt(pauseMatcher.group(5));
-                int capacityMb = Integer.parseInt(pauseMatcher.group(6));
-                double durationMs = Double.parseDouble(pauseMatcher.group(7));
-
-                long eventUptime = 0;
-                if (uptimeMatcher.find(0)) {
-                    eventUptime = Long.parseLong(uptimeMatcher.group(1));
+            if (!matched) {
+                int nextSeq = eventSeq + 1;
+                matched = tryParseGcPause(line, r, nextSeq, uptime)
+                        || tryParseZgcPause(line, r, nextSeq, uptime);
+                if (matched) {
+                    eventSeq = nextSeq;
                 }
-
-                eventSeq++;
-                r.events.add(new CollectionEvent(
-                        eventSeq, type, cause, beforeMb, afterMb, capacityMb,
-                        durationMs, eventUptime));
-                r.pauseDurations.add(durationMs);
-                r.reclaimedTotalMb += Math.max(0, beforeMb - afterMb);
-                r.peakUsedMb = Math.max(r.peakUsedMb, beforeMb);
-
-                switch (type) {
-                    case "Young" -> r.minorCount++;
-                    case "Mixed" -> r.mixedCount++;
-                    case "Full" -> r.fullCount++;
-                }
-                matched = true;
-            }
-
-            // ZGC STW pauses
-            Matcher zgcMatcher = ZGC_PAUSE.matcher(line);
-            if (zgcMatcher.find()) {
-                double durationMs = Double.parseDouble(zgcMatcher.group(2));
-                String phase = zgcMatcher.group(1);
-
-                long eventUptime = 0;
-                if (uptimeMatcher.find(0)) {
-                    eventUptime = Long.parseLong(uptimeMatcher.group(1));
-                }
-
-                eventSeq++;
-                r.events.add(new CollectionEvent(
-                        eventSeq, "STW-Minor", phase, 0, 0, 0,
-                        durationMs, eventUptime));
-                r.pauseDurations.add(durationMs);
-                r.minorCount++;
-                matched = true;
-            }
-
-            // Safepoint TTSP
-            Matcher safepointMatcher = SAFEPOINT_TTSP.matcher(line);
-            if (safepointMatcher.find()) {
-                long ttspNs = Long.parseLong(safepointMatcher.group(1));
-                r.safepointTtspNs.add(ttspNs);
-                matched = true;
-            }
-
-            // Promotion failure
-            if (PROMOTION_FAILURE.matcher(line).find()) {
-                r.promotionFailures++;
-                matched = true;
             }
 
             if (matched) {
@@ -172,10 +119,87 @@ public class GcAnalyzer {
             }
         }
 
+        r.maxUptimeMs = totalDurationMs + Math.max(0, currentForkMaxUptime);
         return r;
     }
 
-    private static void populateSummary(GcSummary.GcSummaryBuilder summaryBuilder, ParseResult r) {
+    private long handleForkMarker(long currentForkMaxUptime, long totalDurationMs) {
+        return currentForkMaxUptime > 0 ? totalDurationMs + currentForkMaxUptime : totalDurationMs;
+    }
+
+    private long extractUptime(String line) {
+        Matcher matcher = UPTIME.matcher(line);
+        return matcher.find() ? Long.parseLong(matcher.group(1)) : 0;
+    }
+
+    private boolean tryParseGcAlgorithm(String line, ParseResult r) {
+        Matcher matcher = GC_ALGORITHM.matcher(line);
+        if (matcher.find()) {
+            r.gcAlgorithm = matcher.group(1);
+            return true;
+        }
+        return false;
+    }
+
+    private boolean tryParseGcPause(String line, ParseResult r, int eventSeq, long uptime) {
+        Matcher matcher = GC_PAUSE.matcher(line);
+        if (!matcher.find()) {
+            return false;
+        }
+
+        String type = matcher.group(1);
+        String cause = matcher.group(3) != null ? matcher.group(3) : matcher.group(2);
+        int beforeMb = Integer.parseInt(matcher.group(4));
+        int afterMb = Integer.parseInt(matcher.group(5));
+        int capacityMb = Integer.parseInt(matcher.group(6));
+        double durationMs = Double.parseDouble(matcher.group(7).replace(",", "."));
+
+        r.events.add(new CollectionEvent(eventSeq, type, cause, beforeMb, afterMb, capacityMb, durationMs, uptime));
+        r.pauseDurations.add(durationMs);
+        r.reclaimedTotalMb += Math.max(0, beforeMb - afterMb);
+        r.peakUsedMb = Math.max(r.peakUsedMb, beforeMb);
+
+        switch (type) {
+            case "Young" -> r.minorCount++;
+            case "Mixed" -> r.mixedCount++;
+            case "Full" -> r.fullCount++;
+        }
+        return true;
+    }
+
+    private boolean tryParseZgcPause(String line, ParseResult r, int eventSeq, long uptime) {
+        Matcher matcher = ZGC_PAUSE.matcher(line);
+        if (!matcher.find()) {
+            return false;
+        }
+
+        double durationMs = Double.parseDouble(matcher.group(2));
+        String phase = matcher.group(1);
+
+        r.events.add(new CollectionEvent(eventSeq, "STW-Minor", phase, 0, 0, 0, durationMs, uptime));
+        r.pauseDurations.add(durationMs);
+        r.minorCount++;
+        return true;
+    }
+
+    private boolean tryParseSafepointTtsp(String line, ParseResult r) {
+        Matcher matcher = SAFEPOINT_TTSP.matcher(line);
+        if (matcher.find()) {
+            r.safepointTtspNs.add(Long.parseLong(matcher.group(1)));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean tryParsePromotionFailure(String line, ParseResult r) {
+        if (PROMOTION_FAILURE.matcher(line).find()) {
+            r.promotionFailures++;
+            return true;
+        }
+        return false;
+    }
+
+    private void populateSummary(GcSummary.GcSummaryBuilder summaryBuilder, ParseResult r) {
         long runDurationMs = r.maxUptimeMs;
         summaryBuilder.gcAlgorithm(r.gcAlgorithm)
                 .runDurationMs(runDurationMs)
@@ -209,9 +233,9 @@ public class GcAnalyzer {
             pauseStatsBuilder.minMs(sorted.get(0));
             pauseStatsBuilder.maxMs(sorted.get(sorted.size() - 1));
             pauseStatsBuilder.meanMs(pauseTotalMs / sorted.size());
-            pauseStatsBuilder.p50Ms(percentile(sorted, 0.50));
-            pauseStatsBuilder.p95Ms(percentile(sorted, 0.95));
-            pauseStatsBuilder.p99Ms(percentile(sorted, 0.99));
+            pauseStatsBuilder.p50Ms(PercentileCalculator.percentile(sorted, 0.50));
+            pauseStatsBuilder.p95Ms(PercentileCalculator.percentile(sorted, 0.95));
+            pauseStatsBuilder.p99Ms(PercentileCalculator.percentile(sorted, 0.99));
         } else {
             pauseStatsBuilder.totalMs(0.0);
         }
@@ -279,29 +303,15 @@ public class GcAnalyzer {
         }
     }
 
-    private static double getSafepointMaxNs(ParseResult r) {
+    private double getSafepointMaxNs(ParseResult r) {
         return r.safepointTtspNs.stream().mapToDouble(Long::doubleValue).max().orElse(0);
     }
 
-    private static double getSafepointTotalNs(ParseResult r) {
+    private double getSafepointTotalNs(ParseResult r) {
         return r.safepointTtspNs.stream().mapToDouble(Long::doubleValue).sum();
     }
 
-    static double percentile(List<Double> sorted, double pct) {
-        if (sorted.isEmpty()) {
-            return 0.0;
-        }
-        if (sorted.size() == 1) {
-            return sorted.get(0);
-        }
-        double index = pct * (sorted.size() - 1);
-        int lower = (int) Math.floor(index);
-        int upper = Math.min(lower + 1, sorted.size() - 1);
-        double fraction = index - lower;
-        return sorted.get(lower) + fraction * (sorted.get(upper) - sorted.get(lower));
-    }
-
-    static class ParseResult {
+    private static class ParseResult {
         String gcAlgorithm;
         List<CollectionEvent> events = new ArrayList<>();
         List<Double> pauseDurations = new ArrayList<>();
@@ -316,4 +326,5 @@ public class GcAnalyzer {
         int mixedCount;
         int fullCount;
     }
+
 }

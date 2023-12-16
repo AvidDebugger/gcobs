@@ -84,11 +84,11 @@ benchmarks:
       gcSystemGcCountMax: 0
       metaspaceUsedMaxMb: 256
 
-  - id: noop-zgc
-    description: Noop workload with ZGC
+  - id: ephemeral-zgc
+    description: Ephemeral workload with ZGC
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     jvm:
       args:
         - "-XX:+UseZGC"
@@ -98,9 +98,9 @@ benchmarks:
 compare:
   pairs:
     - id: g1-vs-zgc
-      base: noop-g1
-      candidate: noop-zgc
-      description: Compare G1 noop vs ZGC noop
+      base: ephemeral-g1
+      candidate: ephemeral-zgc
+      description: Compare G1 ephemeral vs ZGC ephemeral
       metrics:
         - name: gcOverheadPct
           regressionThresholdPct: 20.0

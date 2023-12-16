@@ -4,4 +4,7 @@ rootProject.name = "gcobs"
 include(":cli")
 
 // Benchmarks
-include("benchmarks:benchmark-noop-jmh")
+include("benchmarks:workload-common")
+
+include("benchmarks:benchmark-batch-jmh")
+include("benchmarks:benchmark-ephemeral-jmh")

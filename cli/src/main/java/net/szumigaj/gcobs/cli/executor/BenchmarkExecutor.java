@@ -3,10 +3,14 @@ package net.szumigaj.gcobs.cli.executor;
 import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import net.szumigaj.gcobs.cli.model.BenchmarkEntry;
-import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.artifact.*;
+import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.output.ConsoleTable;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.spec.SpecLoader;
+import net.szumigaj.gcobs.cli.telemetry.EnvironmentSnapshot;
+import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
+import net.szumigaj.gcobs.cli.telemetry.JfrExtractor;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -18,6 +22,7 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Orchestrates benchmark execution: iterates over benchmarks in a spec,
@@ -32,6 +37,9 @@ public class BenchmarkExecutor {
 
     private final SourceResolver sourceResolver;
     private final JmhLauncher jmhLauncher;
+    private final GcAnalyzer gcAnalyzer;
+    private final JfrExtractor jfrExtractor;
+    private final ArtifactWriter artifactWriter;
 
     public int execute(BenchmarkRunSpec spec, ExecutionOptions options) {
         try {
@@ -43,7 +51,10 @@ public class BenchmarkExecutor {
     }
 
     private int doExecute(BenchmarkRunSpec spec, ExecutionOptions options) throws IOException {
-        RunConfiguration runConfig = determineRunConfiguration(spec, options);
+
+        EnvironmentInfo envInfo = new EnvironmentSnapshot().capture();
+
+        RunConfiguration runConfig = determineRunConfiguration(spec, options, envInfo);
         initializeRun(spec, options, runConfig);
 
         Instant startTime = Instant.now();
@@ -54,10 +65,23 @@ public class BenchmarkExecutor {
             return 0;
         }
 
-        return computeExitCodeAndPrintSummary(runConfig.runId(), results, startTime, runConfig.runDir());
+        int exitCode = computeExitCode(results);
+
+        try {
+            RunContext rctx = new RunContext(runConfig.runId, startTime, Instant.now(),
+                    options.specPath(), spec, results, envInfo, runConfig.runDir, exitCode);
+            artifactWriter.writeRunManifest(rctx);
+            artifactWriter.writeReport(rctx);
+        } catch (IOException ae) {
+            log.error("WARNING: Could not write run manifest: {}", ae.getMessage());
+        }
+
+        printSummary(runConfig.runId(), results, startTime, runConfig.runDir());
+
+        return exitCode;
     }
 
-    private RunConfiguration determineRunConfiguration(BenchmarkRunSpec spec, ExecutionOptions options) {
+    private RunConfiguration determineRunConfiguration(BenchmarkRunSpec spec, ExecutionOptions options, EnvironmentInfo envInfo) {
         String runId = options.runId() != null ? options.runId() : spec.metadata().name() + "-" + RUN_ID_FMT.format(Instant.now());
 
         Path runsDir;
@@ -69,7 +93,7 @@ public class BenchmarkExecutor {
             runsDir = Path.of("runs");
         }
 
-        return new RunConfiguration(runId, runsDir, runsDir.resolve(runId));
+        return new RunConfiguration(runId, runsDir, runsDir.resolve(runId), envInfo);
     }
 
     private void initializeRun(BenchmarkRunSpec spec, ExecutionOptions options, RunConfiguration runConfig) throws IOException {
@@ -104,15 +128,15 @@ public class BenchmarkExecutor {
                 continue;
             }
 
-            BenchmarkResult result = executeSingleBenchmark(bench, effective, runConfig.runDir(), options.noJfr(), options.projectRoot());
+            BenchmarkResult result = executeSingleBenchmark(runConfig, bench, effective, options.noJfr(), options.projectRoot());
             results.add(result);
         }
 
         return results;
     }
 
-    private BenchmarkResult executeSingleBenchmark(BenchmarkEntry bench, EffectiveBenchmarkConfig effective, Path runDir, boolean noJfr, Path projectRoot) throws IOException {
-        Path benchDir = runDir.resolve("benchmarks").resolve(bench.id());
+    private BenchmarkResult executeSingleBenchmark(RunConfiguration runConfiguration, BenchmarkEntry bench, EffectiveBenchmarkConfig effective, boolean noJfr, Path projectRoot) throws IOException {
+        Path benchDir = runConfiguration.runDir.resolve("benchmarks").resolve(bench.id());
         Files.createDirectories(benchDir);
 
         ResolvedSource source = sourceResolver.resolve(bench.source(), projectRoot);
@@ -133,19 +157,78 @@ public class BenchmarkExecutor {
 
         if (jmhExitCode != 0) {
             log.error("Benchmark {} FAILED (exit {})", bench.id(), jmhExitCode);
+
+            summarizeFailedRun(runConfiguration.runId, bench, effective, benchStart, benchDuration, runConfiguration.envInfo, benchDir);
+
         } else {
             mergeGcLogs(benchDir);
+
+            GcSummary gcSummary = analyzeGcLogs(runConfiguration.runId, bench, benchDir).orElse(null);
+
+            JfrSummary jfrSummary = extractJfrData(runConfiguration.runId, bench, effective, noJfr, benchDir).orElse(null);
+            
+            // Write benchmark-summary.json
+            JmhScore jmhScore = JmhScore.EMPTY;
+            try {
+                BenchmarkContext bctx = new BenchmarkContext(bench.id(), runConfiguration.runId, "success",
+                        benchStart, Instant.now(), benchDuration.toMillis(),
+                        effective, bench.source(), gcSummary, jfrSummary, runConfiguration.envInfo, benchDir);
+                artifactWriter.writeBenchmarkSummary(bctx);
+                jmhScore = JmhResultParser.parse(benchDir);
+            } catch (IOException ae) {
+                log.error("WARNING: Could not write benchmark summary for %s: %s%n",
+                        bench.id(), ae.getMessage());
+            }
+
+            // Console GC summary table
+            ConsoleTable.printGcTable(bench.id(), gcSummary, jmhScore);
+
             log.info("Benchmark {}: completed in {}s (success)", bench.id(), benchDuration.getSeconds());
         }
 
         return result;
     }
 
-    private int computeExitCodeAndPrintSummary(String runId, List<BenchmarkResult> results, Instant startTime, Path runDir) {
-        printRunSummary(runId, results, startTime, runDir);
+    private void summarizeFailedRun(String runId, BenchmarkEntry bench, EffectiveBenchmarkConfig effective, Instant benchStart, Duration benchDuration, EnvironmentInfo envInfo, Path benchDir) {
+        try {
+            BenchmarkContext bctx = new BenchmarkContext(bench.id(), runId, "failed",
+                    benchStart, Instant.now(), benchDuration.toMillis(),
+                    effective, bench.source(), null, null, envInfo, benchDir);
+            artifactWriter.writeBenchmarkSummary(bctx);
+        } catch (IOException ae) {
+            log.error("WARNING: Could not write benchmark summary for %s: %s%n",
+                    bench.id(), ae.getMessage());
+        }
+    }
 
-        results.forEach(r -> log.info("Benchmark {}: exit {}", r.benchmarkId(), r.exitCode()));
+    private Optional<JfrSummary> extractJfrData(String runId, BenchmarkEntry bench, EffectiveBenchmarkConfig effective, boolean noJfr, Path benchDir) {
+        if (effective.jfrEnabled() && !noJfr) {
+            try {
+                return Optional.ofNullable(jfrExtractor.extract(benchDir, bench.id(), runId));
+            } catch (IOException e) {
+                log.error("WARNING: JFR extraction failed for %s: %s%n",
+                        bench.id(), e.getMessage());
+            }
+        }
+        return Optional.empty();
+    }
 
+    private Optional<GcSummary> analyzeGcLogs(String runId, BenchmarkEntry bench, Path benchDir) {
+        try {
+            return Optional.ofNullable(gcAnalyzer.analyze(benchDir, bench.id(), runId));
+        } catch (IOException e) {
+            log.error("WARNING: GC analysis failed for %s: %s%n",
+                    bench.id(), e.getMessage());
+        }
+        return Optional.empty();
+    }
+
+    private void printSummary(String runId, List<BenchmarkResult> results, Instant startTime, Path runDir) {
+        ConsoleTable.printRunSummary(runId, results,
+                Duration.between(startTime, Instant.now()), runDir);
+    }
+
+    private int computeExitCode(List<BenchmarkResult> results) {
         boolean anyFailed = results.stream().anyMatch(BenchmarkResult::isFailure);
         return anyFailed ? 3 : 0;
     }
@@ -166,19 +249,6 @@ public class BenchmarkExecutor {
         printBenchmarkConfig(config, noJfr);
         if (config.params() != null && !config.params().isEmpty()) {
             log.info("  Params: {}", config.params());
-        }
-    }
-
-    private void printRunSummary(String runId, List<BenchmarkResult> results, Instant startTime, Path runDir) {
-        long succeeded = results.stream().filter(BenchmarkResult::isSuccess).count();
-        long totalSecs = Duration.between(startTime, Instant.now()).getSeconds();
-
-        log.info("Run {} complete: {}/{} benchmarks succeeded in {}s", runId, succeeded, results.size(), totalSecs);
-        log.info("Artifacts: {}/", runDir);
-
-        if (succeeded < results.size()) {
-            log.info("Failed benchmarks:");
-            results.stream().filter(r -> !r.isSuccess()).forEach(r -> log.info("  - {} (exit {})", r.benchmarkId(), r.exitCode()));
         }
     }
 
@@ -219,5 +289,5 @@ public class BenchmarkExecutor {
         return bench.source().type();
     }
 
-    private record RunConfiguration(String runId, Path runsDir, Path runDir) {}
+    private record RunConfiguration(String runId, Path runsDir, Path runDir, EnvironmentInfo envInfo) {}
 }

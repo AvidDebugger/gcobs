@@ -14,11 +14,13 @@ import static org.assertj.core.api.Assertions.within;
 class GcAnalyzerTest {
 
     @TempDir
-    Path tempDir;
+    private Path tempDir;
+
+    private final GcAnalyzer analyzer = new GcAnalyzer();
 
     private GcSummary analyzeLog(String logContent) throws IOException {
         Files.writeString(tempDir.resolve("gc.log"), logContent);
-        return GcAnalyzer.analyze(tempDir, "test-bench", "test-run");
+        return analyzer.analyze(tempDir, "test-bench", "test-run");
     }
 
     private GcSummary analyzeFixture(String fixture) throws IOException {
@@ -112,6 +114,25 @@ class GcAnalyzerTest {
         assertThat(s.collections().get(0).cause()).isEqualTo("G1 Evacuation Pause");
     }
 
+    @Test
+    void collectionEventsHaveCorrectSequenceNumbers() throws IOException {
+        // Log with GC pauses, safepoints, and promotion failures interleaved
+        String log = """
+                [0ms] Using G1
+                [100ms] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 5.000ms
+                [200ms] Reaching safepoint: 50000 ns
+                [300ms] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 32M->12M(256M) 3.000ms
+                [400ms] Promotion failed
+                [500ms] GC(2) Pause Full (Allocation Failure) (G1 Evacuation Pause) 64M->16M(256M) 10.000ms
+                """;
+        GcSummary s = analyzeLog(log);
+
+        assertThat(s.collections()).hasSize(3);
+        assertThat(s.collections().get(0).n()).isEqualTo(1);
+        assertThat(s.collections().get(1).n()).isEqualTo(2);
+        assertThat(s.collections().get(2).n()).isEqualTo(3);
+    }
+
     // --- ZGC Tests ---
 
     @Test
@@ -164,7 +185,7 @@ class GcAnalyzerTest {
 
     @Test
     void handlesMissingGcLog() throws IOException {
-        GcSummary s = GcAnalyzer.analyze(tempDir, "test-bench", "test-run");
+        GcSummary s = analyzer.analyze(tempDir, "test-bench", "test-run");
 
         assertThat(s.analysisScope()).isEqualTo("empty");
         assertThat(s.warnings()).contains("GC log is empty or missing");
@@ -208,14 +229,14 @@ class GcAnalyzerTest {
     void computesPercentilesCorrectly() {
         var sorted = java.util.List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
 
-        assertThat(GcAnalyzer.percentile(sorted, 0.50)).isEqualTo(5.5);
-        assertThat(GcAnalyzer.percentile(sorted, 0.95)).isCloseTo(9.55, within(0.01));
-        assertThat(GcAnalyzer.percentile(sorted, 0.99)).isCloseTo(9.91, within(0.01));
+        assertThat(PercentileCalculator.percentile(sorted, 0.50)).isEqualTo(5.5);
+        assertThat(PercentileCalculator.percentile(sorted, 0.95)).isCloseTo(9.55, within(0.01));
+        assertThat(PercentileCalculator.percentile(sorted, 0.99)).isCloseTo(9.91, within(0.01));
     }
 
     @Test
     void percentileSingleElement() {
-        assertThat(GcAnalyzer.percentile(java.util.List.of(42.0), 0.99)).isEqualTo(42.0);
+        assertThat(PercentileCalculator.percentile(java.util.List.of(42.0), 0.99)).isEqualTo(42.0);
     }
 
     // --- Fork markers ---
@@ -234,5 +255,28 @@ class GcAnalyzerTest {
 
         assertThat(s.pause().countTotal()).isEqualTo(2);
         assertThat(s.gcAlgorithm()).isEqualTo("G1");
+    }
+
+    @Test
+    void sumsMultipleForkDurationsCorrectly() throws IOException {
+        String log = """
+                # === Fork: gc-1.log ===
+                [2ms][info][gc] Using G1
+                [1000ms][info][gc] GC(0) Pause Young (Normal) (G1 Evacuation Pause) 24M->8M(256M) 5.000ms
+
+                # === Fork: gc-2.log ===
+                [2ms][info][gc] Using G1
+                [1500ms][info][gc] GC(1) Pause Young (Normal) (G1 Evacuation Pause) 30M->10M(256M) 3.000ms
+                """;
+        GcSummary s = analyzeLog(log);
+
+        // runDurationMs should be sum of both forks: 1000ms + 1500ms = 2500ms
+        assertThat(s.runDurationMs()).isEqualTo(2500L);
+
+        // Total pause: 5.0 + 3.0 = 8.0ms
+        assertThat(s.pause().totalMs()).isEqualTo(8.0);
+
+        // GC overhead: 8.0ms / 2500ms * 100 = 0.32%
+        assertThat(s.gcOverheadPct()).isCloseTo(0.32, within(0.01));
     }
 }

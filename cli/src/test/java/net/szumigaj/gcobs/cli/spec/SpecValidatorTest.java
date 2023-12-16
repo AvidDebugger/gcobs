@@ -112,7 +112,7 @@ class SpecValidatorTest {
                 .id("same-id")
                 .source(SourceConfig.builder()
                         .type(SOURCE_TYPE_INTERNAL)
-                        .module("benchmark-noop-jmh")
+                        .module("benchmark-ephemeral-jmh")
                         .build())
                 .build();
         var spec = validSpec().toBuilder()
@@ -178,9 +178,9 @@ class SpecValidatorTest {
     void jmhMinValues_topLevel() {
         var spec = validSpec().toBuilder()
                 .jmh(JmhConfig.builder()
-                        .warmupIterations(0)
+                        .warmupIterations(-1)
                         .forks(-1)
-                        .measurementIterations(0)
+                        .measurementIterations(-1)
                         .build())
                 .build();
         var errors = validator.validate(spec);

@@ -4,6 +4,7 @@ plugins {
 }
 
 dependencies {
+    implementation(project(":benchmarks:workload-common"))
     jmh("org.openjdk.jmh:jmh-core:${jmhVersion}")
     jmhAnnotationProcessor("org.openjdk.jmh:jmh-generator-annprocess:${jmhVersion}")
 }

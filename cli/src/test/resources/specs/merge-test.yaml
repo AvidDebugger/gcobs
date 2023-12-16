@@ -27,7 +27,7 @@ benchmarks:
     description: Inherits all top-level defaults
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
 
   - id: overrides-jvm
     description: Overrides jvm.args (replaces) and jvm.env (merges)
@@ -47,7 +47,7 @@ benchmarks:
     description: Overrides some JMH fields, inherits others
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     jmh:
       forks: 1
       threads: 4
@@ -56,7 +56,7 @@ benchmarks:
     description: Overrides observability fields
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     observability:
       jfr:
         enabled: false

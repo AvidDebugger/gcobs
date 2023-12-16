@@ -7,7 +7,7 @@ metadata:
     EpsilonGC score reveals the maximum potential improvement from optimizing GC.
   labels:
     category: baseline
-    workload: noop
+    workload: ephemeral
 
 run:
   profile: invariant
@@ -21,11 +21,11 @@ jmh:
 
 benchmarks:
 
-  - id: epsilon-noop
-    description: "NoopKernel under EpsilonGC (theoretical minimum, zero GC overhead)"
+  - id: epsilon-ephemeral
+    description: "EphemeralKernel under EpsilonGC (theoretical minimum, zero GC overhead)"
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     jvm:
       args:
         - -XX:+UnlockExperimentalVMOptions
@@ -33,25 +33,25 @@ benchmarks:
         - -Xms2g
         - -Xmx2g
     jmh:
-      includes: ".*noopKernelChecksum.*"
+      includes: ".*ephemeralKernelChecksum.*"
     params:
       iterations: 10
       batchSize: 80
       payloadBytes: 320
       sleepMs: 0
 
-  - id: g1-noop
-    description: "NoopKernel under G1GC 384MB (same workload, GC overhead visible)"
+  - id: g1-ephemeral
+    description: "EphemeralKernel under G1GC 384MB (same workload, GC overhead visible)"
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     jvm:
       args:
         - -XX:+UseG1GC
         - -Xms384m
         - -Xmx384m
     jmh:
-      includes: ".*noopKernelChecksum.*"
+      includes: ".*ephemeralKernelChecksum.*"
     params:
       iterations: 10
       batchSize: 80
@@ -63,8 +63,8 @@ benchmarks:
 compare:
   pairs:
     - id: epsilon-vs-g1
-      base: epsilon-noop
-      candidate: g1-noop
+      base: epsilon-ephemeral
+      candidate: g1-ephemeral
       description: |
         Compare G1GC overhead vs theoretical minimum.
         REGRESSION if G1 score > epsilon score * 1.5 (GC overhead > 33% of total time)

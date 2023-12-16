@@ -19,7 +19,7 @@ public final class JsonWriter {
         MAPPER.writeValue(file.toFile(), value);
     }
 
-    static ObjectMapper mapper() {
+    public static ObjectMapper mapper() {
         return MAPPER;
     }
 }

@@ -1,0 +1,142 @@
+metadata:
+  name: gc-algorithms-batch
+  description: |
+    Compare all four primary GC algorithms (SerialGC, ParallelGC, G1GC, ZGC)
+    on the same batch workload with medium allocation pressure.
+    Hypothesis: ZGC achieves lowest P99 pause at comparable throughput to G1GC.
+  labels:
+    category: gc-comparison
+    workload: batch
+    tier: comparison
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms384m
+    - -Xmx384m
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+  timeseries:
+    enabled: false
+
+benchmarks:
+
+  - id: serial-batch
+    description: "BatchKernel under SerialGC (single-threaded; latency baseline)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseSerialGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: parallel-batch
+    description: "BatchKernel under ParallelGC (throughput-optimized)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseParallelGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: g1-batch
+    description: "BatchKernel under G1GC (balanced default)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 150
+      gcFullCountMax: 0
+
+  - id: zgc-batch
+    description: "BatchKernel under ZGC (low-latency concurrent)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 10
+      gcAllocationStallsMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1
+      base: g1-batch
+      candidate: zgc-batch
+      description: "ZGC vs G1GC: latency and throughput comparison"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 50.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
+
+    - id: parallel-vs-g1
+      base: g1-batch
+      candidate: parallel-batch
+      description: "ParallelGC vs G1GC: throughput-first vs balanced"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 50.0
+        - name: jmhScore
+          regressionThresholdPct: 15.0

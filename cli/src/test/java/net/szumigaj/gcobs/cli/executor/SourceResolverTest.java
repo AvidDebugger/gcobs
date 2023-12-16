@@ -19,15 +19,15 @@ class SourceResolverTest {
     void resolveInternalExistingModule() {
         SourceConfig source = SourceConfig.builder()
                 .type(SOURCE_TYPE_INTERNAL)
-                .module("benchmark-noop-jmh")
+                .module("benchmark-ephemeral-jmh")
                 .build();
 
         ResolvedSource resolved = resolver.resolve(source, projectRoot);
 
         assertThat(resolved.type().getKey()).isEqualTo("internal");
-        assertThat(resolved.gradleTask()).isEqualTo(":benchmarks:benchmark-noop-jmh:runJmh");
+        assertThat(resolved.gradleTask()).isEqualTo(":benchmarks:benchmark-ephemeral-jmh:runJmh");
         assertThat(resolved.moduleDir()).isEqualTo(
-                projectRoot.resolve("benchmarks/benchmark-noop-jmh"));
+                projectRoot.resolve("benchmarks/benchmark-ephemeral-jmh"));
     }
 
     @Test

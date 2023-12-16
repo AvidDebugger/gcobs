@@ -1,0 +1,24 @@
+[
+  {
+    "benchmark": "net.szumigaj.gcobs.benchmark.batch.BatchKernelBenchmark.batchKernelChecksum",
+    "mode": "avgt",
+    "threads": 1,
+    "forks": 3,
+    "warmupIterations": 5,
+    "warmupTime": "10 s",
+    "measurementIterations": 5,
+    "measurementTime": "10 s",
+    "primaryMetric": {
+      "score": 0.012345,
+      "scoreError": 0.001234,
+      "scoreUnit": "ms/op",
+      "scoreConfidence": [0.011111, 0.013579],
+      "rawData": [
+        [0.012, 0.013, 0.012, 0.013, 0.012],
+        [0.012, 0.013, 0.012, 0.013, 0.012],
+        [0.012, 0.013, 0.012, 0.013, 0.012]
+      ]
+    },
+    "secondaryMetrics": {}
+  }
+]
