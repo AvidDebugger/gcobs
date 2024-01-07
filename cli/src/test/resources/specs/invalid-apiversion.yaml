@@ -1,7 +1,7 @@
 metadata:
   name: bad-apiversion
 benchmarks:
-  - id: noop-g1
+  - id: ephemeral-g1
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh

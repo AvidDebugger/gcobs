@@ -47,11 +47,11 @@ output:
   consoleTable: true
 
 benchmarks:
-  - id: noop-g1
+  - id: ephemeral-g1
     description: Noop workload with G1GC
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     jvm:
       args:
         - "-XX:+UseG1GC"

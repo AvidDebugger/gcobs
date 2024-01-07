@@ -20,10 +20,10 @@ class SpecValidatorTest {
                         .build())
                 .benchmarks(List.of(
                         BenchmarkEntry.builder()
-                                .id("noop-g1")
+                                .id("ephemeral-g1")
                                 .source(SourceConfig.builder()
                                         .type(SOURCE_TYPE_INTERNAL)
-                                        .module("benchmark-noop-jmh")
+                                        .module("benchmark-ephemeral-jmh")
                                         .build())
                                 .build()
                 ))
@@ -105,7 +105,7 @@ class SpecValidatorTest {
                 .id("same-id")
                 .source(SourceConfig.builder()
                         .type(SOURCE_TYPE_INTERNAL)
-                        .module("benchmark-noop-jmh")
+                        .module("benchmark-ephemeral-jmh")
                         .build())
                 .build();
         var bench2 = BenchmarkEntry.builder()
@@ -208,7 +208,7 @@ class SpecValidatorTest {
     void comparePairReferencesUnknownId() {
         var pair = ComparisonPair.builder()
                 .id("test-pair")
-                .base("noop-g1")
+                .base("ephemeral-g1")
                 .candidate("nonexistent-bench")
                 .build();
         var spec = validSpec().toBuilder()
@@ -229,8 +229,8 @@ class SpecValidatorTest {
                 .build();
         var pair = ComparisonPair.builder()
                 .id("test-pair")
-                .base("noop-g1")
-                .candidate("noop-g1")
+                .base("ephemeral-g1")
+                .candidate("ephemeral-g1")
                 .metrics(List.of(metric))
                 .build();
         var spec = validSpec().toBuilder()

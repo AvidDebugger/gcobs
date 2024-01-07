@@ -33,7 +33,7 @@ benchmarks:
     description: Overrides jvm.args (replaces) and jvm.env (merges)
     source:
       type: internal
-      module: benchmark-noop-jmh
+      module: benchmark-ephemeral-jmh
     jvm:
       args:
         - "-XX:+UseZGC"

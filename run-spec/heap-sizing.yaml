@@ -1,0 +1,125 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: heap-sizing-batch
+  description: |
+    Compare G1GC performance at 256MB, 384MB, 512MB, and 768MB heap sizes
+    with BatchKernel medium workload.
+    Expected: 256MB -> high GC overhead + Full GC risk
+              384MB -> significantly better; Full GC eliminated
+              512MB -> marginal improvement over 384MB
+              768MB -> negligible improvement over 512MB
+  labels:
+    category: heap-tuning
+    workload: batch
+
+run:
+  profile: explore
+  runsDir: runs/
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+benchmarks:
+
+  - id: g1-256m
+    description: "G1GC BatchKernel at 256MB heap (undersized)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseG1GC, -Xms256m, -Xmx256m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+
+  - id: g1-384m
+    description: "G1GC BatchKernel at 384MB heap (reference)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseG1GC, -Xms384m, -Xmx384m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+
+  - id: g1-512m
+    description: "G1GC BatchKernel at 512MB heap"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseG1GC, -Xms512m, -Xmx512m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+
+  - id: g1-768m
+    description: "G1GC BatchKernel at 768MB heap (oversized)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseG1GC, -Xms768m, -Xmx768m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+
+compare:
+  pairs:
+    - id: 384m-vs-256m
+      base: g1-256m
+      candidate: g1-384m
+      description: "Effect of heap increase: 256MB -> 384MB"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 20.0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
+
+    - id: 512m-vs-384m
+      base: g1-384m
+      candidate: g1-512m
+      description: "Effect of heap increase: 384MB -> 512MB"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 20.0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
+
+    - id: 768m-vs-512m
+      base: g1-512m
+      candidate: g1-768m
+      description: "Effect of heap increase: 512MB -> 768MB (diminishing returns)"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 20.0
+        - name: jmhScore
+          regressionThresholdPct: 15.0

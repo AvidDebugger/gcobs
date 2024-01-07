@@ -23,9 +23,9 @@ class SpecLoaderTest {
 
         assertThat(spec.metadata().name()).isEqualTo("test-minimal");
         assertThat(spec.benchmarks()).hasSize(1);
-        assertThat(spec.benchmarks().get(0).id()).isEqualTo("noop-g1");
+        assertThat(spec.benchmarks().get(0).id()).isEqualTo("ephemeral-g1");
         assertThat(spec.benchmarks().get(0).source().type()).isEqualTo("internal");
-        assertThat(spec.benchmarks().get(0).source().module()).isEqualTo("benchmark-noop-jmh");
+        assertThat(spec.benchmarks().get(0).source().module()).isEqualTo("benchmark-ephemeral-jmh");
     }
 
     @Test
@@ -79,10 +79,10 @@ class SpecLoaderTest {
                   name: test-unknown
                 unknownTopLevel: should-be-ignored
                 benchmarks:
-                  - id: noop-g1
+                  - id: ephemeral-g1
                     source:
                       type: internal
-                      module: benchmark-noop-jmh
+                      module: benchmark-ephemeral-jmh
                     unknownField: also-ignored
                 """);
 

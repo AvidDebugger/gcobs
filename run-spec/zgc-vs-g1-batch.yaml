@@ -1,0 +1,105 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: zgc-vs-g1-batch
+  description: |
+    Hypothesis: ZGC provides lower P99 GC pause than G1GC for batch workloads
+    at 384MB heap, at the cost of < 15% throughput reduction.
+    ZGC target: gcPauseP99 < 50ms, gcAllocationStalls = 0
+    G1GC expected: gcPauseP99 = 60-150ms, gcFullCount = 0
+  labels:
+    hypothesis-id: H-BATCH-001
+    category: gc-comparison
+    workload: batch
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms384m
+    - -Xmx384m
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+
+benchmarks:
+
+  - id: g1-batch
+    description: "BatchKernel under G1GC 384MB - reference configuration"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 150
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 15.0
+      gcSystemGcCountMax: 0
+      metaspaceUsedMaxMb: 256
+
+  - id: zgc-batch
+    description: "BatchKernel under ZGC 384MB - candidate configuration"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 50
+      gcAllocationStallsMax: 0
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 10.0
+      gcCpuMaxPct: 10.0
+      gcSystemGcCountMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1
+      base: g1-batch
+      candidate: zgc-batch
+      description: "ZGC vs G1GC: test hypothesis H-BATCH-001"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 50.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: allocationStalls
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
+        - name: gcCpuPct
+          regressionThresholdPct: 50.0

@@ -1,0 +1,60 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: lab03
+  description: |
+    Lab 03: ZGC service latency measurement.
+    Run ServiceKernel under ZGC and observe near-zero GC pause impact on latency.
+    Learning objectives:
+    - Understand ServiceKernel's latency measurement model
+    - Observe that ZGC gcPauseP99 is near 0ms (concurrent collector)
+    - Read jfr-summary.json allocationStalls (0 = ZGC keeping up)
+    - Understand safepoint TTSP and why it matters even for ZGC
+    - Compare JMH scoreError across G1GC and ZGC to see variance reduction
+  labels:
+    category: curriculum
+    lab: "03"
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 3
+  forks: 2
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+  timeseries:
+    enabled: true
+
+benchmarks:
+
+  - id: zgc-service
+    description: "ServiceKernel under ZGC 256MB - low-latency service workload"
+    source:
+      type: internal
+      module: benchmark-fake-http-service-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms256m
+        - -Xmx256m
+    jmh:
+      includes: ".*ClientKernelBenchmark.handleRequest.*"
+    params:
+      iterations: 1
+      batchSize: 1
+      payloadBytes: 256
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 5
+      gcAllocationStallsMax: 0
+      gcFullCountMax: 0
+
+output:
+  consoleTable: true

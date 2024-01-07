@@ -1,0 +1,51 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: lab01
+  description: |
+    Lab 01: First invariant run.
+    Execute a single benchmark and read GC telemetry.
+    Learning objectives:
+    - Run gcobs with profile: invariant
+    - Read gc-summary.json (gcOverheadPct, pause.p99Ms, heap.peakUsedMb)
+    - Read jfr-summary.json (allocationStalls, safepoint.ttspMaxMs)
+    - Understand the four golden GC signals (Latency, Traffic, Errors, Saturation)
+  labels:
+    category: curriculum
+    lab: "01"
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 3
+  forks: 2
+
+output:
+  consoleTable: true
+
+benchmarks:
+
+  - id: g1-baseline
+    description: "BatchKernel under G1GC - your first invariant run"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms256m
+        - -Xmx256m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 25.0

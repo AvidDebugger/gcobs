@@ -1,0 +1,90 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: zgc-vs-g1-service
+  description: |
+    Hypothesis: ZGC improves service latency (P99 JMH score) vs G1GC by eliminating
+    STW pause interference with simulated request handling.
+    ZGC target: jmhScore < 3.5ms/op, scoreError < 0.5 (low variance)
+    G1GC expected: higher score variance due to GC pauses interrupting requests
+  labels:
+    hypothesis-id: H-SERVICE-001
+    category: gc-comparison
+    workload: service
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms256m
+    - -Xmx256m
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+benchmarks:
+
+  - id: g1-service
+    description: "ServiceKernel under G1GC 256MB"
+    source:
+      type: internal
+      module: benchmark-fake-http-service-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms256m
+        - -Xmx256m
+    jmh:
+      includes: ".*ClientKernelBenchmark.handleRequest.*"
+    params:
+      iterations: 1
+      batchSize: 1
+      payloadBytes: 256
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 200
+      gcFullCountMax: 0
+
+  - id: zgc-service
+    description: "ServiceKernel under ZGC 256MB"
+    source:
+      type: internal
+      module: benchmark-fake-http-service-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms256m
+        - -Xmx256m
+    jmh:
+      includes: ".*ClientKernelBenchmark.handleRequest.*"
+    params:
+      iterations: 1
+      batchSize: 1
+      payloadBytes: 256
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 5
+      gcAllocationStallsMax: 0
+      jmhScoreRegressionMaxPct: 20.0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1-service
+      base: g1-service
+      candidate: zgc-service
+      description: "ZGC vs G1GC for simulated service workload"
+      metrics:
+        - name: jmhScore
+          regressionThresholdPct: 15.0
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: safepointTtspMaxMs
+          regressionThresholdPct: 50.0
+        - name: allocationStalls
+          regressionThresholdAbsolute: 0

@@ -1,0 +1,75 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: lab02
+  description: |
+    Lab 02: Compare two GC configurations.
+    Compare G1GC (balanced) vs ParallelGC (throughput-optimized) on the same workload.
+    Learning objectives:
+    - Understand multi-benchmark BenchmarkRun specs
+    - Read compare-result.json (verdict, deltaPct per metric)
+    - Understand IMPROVEMENT vs REGRESSION vs OK verdicts
+    - Understand how regressionThresholdPct works
+  labels:
+    category: curriculum
+    lab: "02"
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 3
+  forks: 2
+
+benchmarks:
+
+  - id: g1-base
+    description: "G1GC reference: balanced latency and throughput"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseG1GC, -Xms256m, -Xmx256m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: parallel-burst
+    description: "ParallelGC under burst: higher throughput, higher pause times"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseParallelGC, -Xms256m, -Xmx256m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+compare:
+  pairs:
+    - id: parallel-vs-g1
+      base: g1-base
+      candidate: parallel-burst
+      description: "ParallelGC vs G1GC: observe trade-offs"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 100.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 30.0
+        - name: jmhScore
+          regressionThresholdPct: 20.0

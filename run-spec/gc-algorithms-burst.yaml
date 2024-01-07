@@ -1,0 +1,107 @@
+apiVersion: gcobs/v2
+kind: BenchmarkRun
+
+metadata:
+  name: gc-algorithms-burst
+  description: |
+    Compare GC algorithms under high allocation pressure (burst workload config).
+    High batchSize and payloadBytes create heap pressure; tests Full GC behavior.
+    Hypothesis: ZGC and G1GC avoid Full GC where SerialGC fails.
+  labels:
+    category: gc-comparison
+    workload: burst
+    tier: stress
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms384m
+    - -Xmx384m
+
+jmh:
+  warmupIterations: 5
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+benchmarks:
+
+  - id: serial-burst
+    description: "BatchKernel burst under SerialGC"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseSerialGC, -Xms384m, -Xmx384m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 20
+      batchSize: 160
+      payloadBytes: 640
+      sleepMs: 0
+
+  - id: parallel-burst
+    description: "BatchKernel burst under ParallelGC"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseParallelGC, -Xms384m, -Xmx384m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 20
+      batchSize: 160
+      payloadBytes: 640
+      sleepMs: 0
+
+  - id: g1-burst
+    description: "BatchKernel burst under G1GC"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseG1GC, -Xms384m, -Xmx384m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 20
+      batchSize: 160
+      payloadBytes: 640
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 2
+
+  - id: zgc-burst
+    description: "BatchKernel burst under ZGC"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args: [-XX:+UseZGC, -Xms512m, -Xmx512m]
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 20
+      batchSize: 160
+      payloadBytes: 640
+      sleepMs: 0
+    thresholds:
+      gcAllocationStallsMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1-burst
+      base: g1-burst
+      candidate: zgc-burst
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 20.0
