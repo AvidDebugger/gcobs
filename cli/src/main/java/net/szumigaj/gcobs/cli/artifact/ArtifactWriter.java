@@ -22,6 +22,9 @@ import java.util.Collections;
 import java.util.HexFormat;
 import java.util.List;
 
+import static net.szumigaj.gcobs.cli.threshold.ThresholdResult.ThresholdStatus.FAIL;
+import static net.szumigaj.gcobs.cli.threshold.ThresholdResult.ThresholdStatus.PASS;
+
 @Slf4j
 @Singleton
 public final class ArtifactWriter {
@@ -193,7 +196,7 @@ public final class ArtifactWriter {
         return warnings.isEmpty() ? null : warnings;
     }
 
-    public void writeRunManifest(RunContext ctx) throws IOException {
+    public void writeRunManifest(RunContext ctx, RunSummaryContext summaryCtx) throws IOException {
         // Spec
         RunManifestModel.Spec spec = RunManifestModel.Spec.builder()
                 .path(RUN_SPEC_YAML)
@@ -220,9 +223,23 @@ public final class ArtifactWriter {
         }
 
         // Threshold summary
+
+        List<RunManifestModel.ThresholdBreach> allBreaches = new ArrayList<>();
+        boolean allPassed = true;
+        for (var result : ctx.results()) {
+            var thresholdResult = result.thresholdResult();
+            if (thresholdResult != null && FAIL.equals(thresholdResult.status()) && thresholdResult.breaches() != null) {
+                allPassed = false;
+                for (var b : thresholdResult.breaches()) {
+                    allBreaches.add(new RunManifestModel.ThresholdBreach(
+                            result.benchmarkId(), b.field(), b.threshold(), b.actual(), b.message()));
+                }
+            }
+        }
+
         RunManifestModel.ThresholdSummary thresholdSummary = RunManifestModel.ThresholdSummary.builder()
-                .allPassed(true)
-                .breaches(Collections.emptyList())
+                .allPassed(allPassed)
+                .breaches(allBreaches)
                 .build();
 
         // Execution
@@ -244,7 +261,7 @@ public final class ArtifactWriter {
                 .spec(spec)
                 .profile(profile)
                 .benchmarks(entries)
-                .comparisons(Collections.emptyList())
+                .comparisons(summaryCtx.comparisons())
                 .thresholdSummary(thresholdSummary)
                 .execution(exec)
                 .warnings(Collections.emptyList())
@@ -377,6 +394,10 @@ public final class ArtifactWriter {
                 .durationMs(result.duration().toMillis())
                 .thresholdsPassed(null)
                 .summaryPath(String.format(BENCHMARK_SUMMARY_PATH_FORMAT, result.benchmarkId()));
+
+        if(result.thresholdResult() != null) {
+            benchmarkEntryBuilder.thresholdsPassed(PASS.equals(result.thresholdResult().status()));
+        }
 
         try {
             Path gcSummaryPath = benchDir.resolve(GC_SUMMARY_JSON);

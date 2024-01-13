@@ -48,6 +48,14 @@ public class RunExecuteCommand implements Callable<Integer> {
             description = "Validate + resolve sources; no execution")
     boolean dryRun;
 
+    @Option(names = "--profile",
+            description = "Override run.profile (invariant|explore)")
+    String profile;
+
+    @Option(names = "--strict-metrics",
+            description = "Enforce missing-threshold-metric as breach")
+    boolean strictMetrics;
+
     @Inject
     private SpecLoader loader;
 
@@ -91,6 +99,8 @@ public class RunExecuteCommand implements Callable<Integer> {
                     .noJfr(noJfr)
                     .benchmarkFilter(benchmarkFilter)
                     .dryRun(dryRun)
+                    .profile(profile)
+                    .strictMetrics(strictMetrics)
                     .build();
 
             // 5. Execute

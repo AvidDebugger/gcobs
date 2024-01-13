@@ -1,7 +1,9 @@
 package net.szumigaj.gcobs.cli.output;
 
+import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.artifact.JmhScore;
+import net.szumigaj.gcobs.cli.compare.CompareResult;
 import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
 import net.szumigaj.gcobs.cli.model.GcSummary;
 import net.szumigaj.gcobs.cli.model.HeapStats;
@@ -12,15 +14,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.List;
 
+import static net.szumigaj.gcobs.cli.threshold.ThresholdResult.ThresholdStatus.FAIL;
+
 @Slf4j
-public final class ConsoleTable {
+@Singleton
+public class ConsoleTable {
 
     private static final int WIDTH = 62;
     private static final String PREFIX = "[gcobs] ";
 
-    private ConsoleTable() {}
-
-    public static void printGcTable(String benchmarkId, GcSummary gcSummary, JmhScore jmhScore) {
+    public void printGcTable(String benchmarkId, GcSummary gcSummary, JmhScore jmhScore) {
         printTableBorder(benchmarkId, true);
 
         if (gcSummary != null) {
@@ -37,7 +40,34 @@ public final class ConsoleTable {
         printTableBorder(benchmarkId, false);
     }
 
-    private static void printTableBorder(String benchmarkId, boolean isTop) {
+    public void printDeltaTable(CompareResult result) {
+        String header = "Comparison: " + result.pairId();
+        String top = "┌─ " + header + " " + "─".repeat(Math.max(0, WIDTH - header.length() - 4)) + "┐";
+        String bottom = "└" + "─".repeat(WIDTH - 2) + "┘";
+
+        log.info(PREFIX + top);
+        log.info("{}│ Verdict: {}│", PREFIX, result.verdict());
+        log.info("{}│{}│", PREFIX, " ".repeat(WIDTH - 2));
+        log.info("{}│ {} {} {} {} {}│",
+                PREFIX, "Metric", "Base", "Candidate", "Delta", "Status");
+        log.info("{}│ {} {} {} {} {}│",
+                PREFIX, "────────────────", "─────────", "───────────", "─────────", "───────────");
+
+        if (result.metrics() != null) {
+            for (var m : result.metrics()) {
+                String baseStr = fmtMetricVal(m.baseValue());
+                String candStr = fmtMetricVal(m.candidateValue());
+                String deltaStr = m.deltaPct() != null
+                        ? String.format("%+.1f%%", m.deltaPct()) : "N/A";
+                log.info("{}│ {} {} {} {} {}│",
+                        PREFIX, truncate(m.name(), 16), baseStr, candStr, deltaStr, m.status());
+            }
+        }
+
+        log.info(PREFIX + bottom);
+    }
+
+    private void printTableBorder(String benchmarkId, boolean isTop) {
         if (isTop) {
             String header = "GC Summary: " + benchmarkId;
             String top = "┌─ " + header + " " + "─".repeat(Math.max(0, WIDTH - header.length() - 4)) + "┐";
@@ -48,11 +78,11 @@ public final class ConsoleTable {
         }
     }
 
-    private static String formatGcOverhead(Double gcOverheadPct) {
+    private String formatGcOverhead(Double gcOverheadPct) {
         return gcOverheadPct != null ? String.format("%.2f%%", gcOverheadPct) : "N/A";
     }
 
-    private static void formatPauseStatistics(PauseStats pause) {
+    private void formatPauseStatistics(PauseStats pause) {
         if (pause != null) {
             row("Collections", String.format("minor=%d  mixed=%d  full=%d",
                     pause.countMinor(), pause.countMixed(), pause.countFull()));
@@ -63,7 +93,7 @@ public final class ConsoleTable {
         }
     }
 
-    private static void formatHeapStatistics(HeapStats heap) {
+    private void formatHeapStatistics(HeapStats heap) {
         if (heap != null) {
             row("Allocation Rate", heap.allocationRateMbPerSec() != null
                     ? String.format("%.1f MB/s", heap.allocationRateMbPerSec()) : "N/A");
@@ -72,14 +102,14 @@ public final class ConsoleTable {
         }
     }
 
-    private static void formatSafepointStatistics(SafepointStats safepoint) {
+    private void formatSafepointStatistics(SafepointStats safepoint) {
         if (safepoint != null) {
             row("Safepoints", String.format("%d (TTSP max=%sms)",
                     safepoint.countTotal(), fmtMs(safepoint.ttspMaxMs())));
         }
     }
 
-    private static void formatJmhScore(JmhScore jmhScore) {
+    private void formatJmhScore(JmhScore jmhScore) {
         if (jmhScore != null && jmhScore.score() != null) {
             String scoreStr = String.format("%.4f", jmhScore.score());
             if (jmhScore.scoreError() != null) {
@@ -95,10 +125,17 @@ public final class ConsoleTable {
     /**
      * Prints a run summary footer after all benchmarks complete.
      */
-    public static void printRunSummary(String runId, List<BenchmarkResult> results,
+    public void printRunSummary(String runId, List<BenchmarkResult> results,
                                         Duration totalDuration, Path runDir) {
         String bar = "═".repeat(WIDTH);
         long succeeded = results.stream().filter(BenchmarkResult::isSuccess).count();
+
+        long thresholdBreaches = results.stream()
+                .filter(r -> r.thresholdResult() != null && FAIL.equals(r.thresholdResult().status()))
+                .count();
+        if (thresholdBreaches > 0) {
+            log.info("{}  Thresholds:   {} breach(es)", PREFIX, thresholdBreaches);
+        }
 
         log.info(PREFIX + bar);
         log.info("{}  Run Complete: {}", PREFIX, runId);
@@ -116,15 +153,27 @@ public final class ConsoleTable {
         }
     }
 
-    private static void row(String label, String value) {
+    private void row(String label, String value) {
         log.info("{}│ {} {}", PREFIX, label + ":", value);
     }
 
-    private static String fmtMs(Double val) {
+    private String fmtMs(Double val) {
         return val != null ? String.format("%.1f", val) : "N/A";
     }
 
-    private static String orNA(String val) {
+    private String orNA(String val) {
         return val != null ? val : "N/A";
+    }
+
+    private String fmtMetricVal(Double val) {
+        if (val == null) return "N/A";
+        if (val == Math.floor(val) && val < 1_000_000) {
+            return String.format("%.0f", val);
+        }
+        return String.format("%.4g", val);
+    }
+
+    private String truncate(String s, int maxLen) {
+        return s.length() <= maxLen ? s : s.substring(0, maxLen - 1) + "...";
     }
 }

@@ -4,6 +4,8 @@ import jakarta.inject.Singleton;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.artifact.*;
+import net.szumigaj.gcobs.cli.compare.CompareResult;
+import net.szumigaj.gcobs.cli.compare.ComparisonEngine;
 import net.szumigaj.gcobs.cli.model.*;
 import net.szumigaj.gcobs.cli.output.ConsoleTable;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
@@ -11,6 +13,8 @@ import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.telemetry.EnvironmentSnapshot;
 import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
 import net.szumigaj.gcobs.cli.telemetry.JfrExtractor;
+import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
+import net.szumigaj.gcobs.cli.threshold.ThresholdValidator;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -21,8 +25,11 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import static net.szumigaj.gcobs.cli.threshold.ThresholdResult.ThresholdStatus.FAIL;
 
 /**
  * Orchestrates benchmark execution: iterates over benchmarks in a spec,
@@ -40,6 +47,8 @@ public class BenchmarkExecutor {
     private final GcAnalyzer gcAnalyzer;
     private final JfrExtractor jfrExtractor;
     private final ArtifactWriter artifactWriter;
+    private final ComparisonEngine comparisonEngine;
+    private final ConsoleTable consoleTable;
 
     public int execute(BenchmarkRunSpec spec, ExecutionOptions options) {
         try {
@@ -65,13 +74,28 @@ public class BenchmarkExecutor {
             return 0;
         }
 
-        int exitCode = computeExitCode(results);
+        String profileMode = resolveProfileMode(spec, options);
+        List<CompareResult> compareResults = Collections.emptyList();
+        if (spec.compare() != null && spec.compare().pairs() != null && !spec.compare().pairs().isEmpty()) {
+            try {
+                compareResults = comparisonEngine.compareIntraSpec(
+                        spec.compare(), runConfig.runDir(), runConfig.runId, profileMode);
+                for (CompareResult cr : compareResults) {
+                    consoleTable.printDeltaTable(cr);
+                }
+            } catch (Exception e) {
+                log.error("[gcobs] WARNING: Comparison failed: {}", e.getMessage());
+            }
+        }
+
+        int exitCode = computeExitCode(results, profileMode);
 
         try {
-            RunContext rctx = new RunContext(runConfig.runId, startTime, Instant.now(),
+            RunContext runContext = new RunContext(runConfig.runId, startTime, Instant.now(),
                     options.specPath(), spec, results, envInfo, runConfig.runDir, exitCode);
-            artifactWriter.writeRunManifest(rctx);
-            artifactWriter.writeReport(rctx);
+            RunSummaryContext summaryCtx = new RunSummaryContext(compareResults);
+            artifactWriter.writeRunManifest(runContext, summaryCtx);
+            artifactWriter.writeReport(runContext);
         } catch (IOException ae) {
             log.error("WARNING: Could not write run manifest: {}", ae.getMessage());
         }
@@ -128,24 +152,24 @@ public class BenchmarkExecutor {
                 continue;
             }
 
-            BenchmarkResult result = executeSingleBenchmark(runConfig, bench, effective, options.noJfr(), options.projectRoot());
+            BenchmarkResult result = executeSingleBenchmark(spec, runConfig, options, bench, effective);
             results.add(result);
         }
 
         return results;
     }
 
-    private BenchmarkResult executeSingleBenchmark(RunConfiguration runConfiguration, BenchmarkEntry bench, EffectiveBenchmarkConfig effective, boolean noJfr, Path projectRoot) throws IOException {
+    private BenchmarkResult executeSingleBenchmark(BenchmarkRunSpec spec, RunConfiguration runConfiguration, ExecutionOptions options, BenchmarkEntry bench, EffectiveBenchmarkConfig effective) throws IOException {
         Path benchDir = runConfiguration.runDir.resolve("benchmarks").resolve(bench.id());
         Files.createDirectories(benchDir);
 
-        ResolvedSource source = sourceResolver.resolve(bench.source(), projectRoot);
-        printBenchmarkConfig(effective, noJfr);
+        ResolvedSource source = sourceResolver.resolve(bench.source(), options.projectRoot());
+        printBenchmarkConfig(effective, options.noJfr());
 
         Instant benchStart = Instant.now();
         int jmhExitCode;
         try {
-            jmhExitCode = jmhLauncher.launch(source, effective, benchDir, noJfr, projectRoot);
+            jmhExitCode = jmhLauncher.launch(source, effective, benchDir, options.noJfr(), options.projectRoot());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             log.error("Benchmark {} INTERRUPTED", bench.id());
@@ -153,22 +177,30 @@ public class BenchmarkExecutor {
         }
 
         Duration benchDuration = Duration.between(benchStart, Instant.now());
-        BenchmarkResult result = new BenchmarkResult(bench.id(), jmhExitCode, benchDuration);
 
         if (jmhExitCode != 0) {
             log.error("Benchmark {} FAILED (exit {})", bench.id(), jmhExitCode);
 
             summarizeFailedRun(runConfiguration.runId, bench, effective, benchStart, benchDuration, runConfiguration.envInfo, benchDir);
 
+            return  new BenchmarkResult(bench.id(), jmhExitCode, benchDuration, null);
+
         } else {
             mergeGcLogs(benchDir);
 
             GcSummary gcSummary = analyzeGcLogs(runConfiguration.runId, bench, benchDir).orElse(null);
 
-            JfrSummary jfrSummary = extractJfrData(runConfiguration.runId, bench, effective, noJfr, benchDir).orElse(null);
-            
-            // Write benchmark-summary.json
-            JmhScore jmhScore = JmhScore.EMPTY;
+            JfrSummary jfrSummary = extractJfrData(runConfiguration.runId, bench, effective, options.noJfr(), benchDir).orElse(null);
+
+            JmhScore jmhScore = JmhResultParser.parse(benchDir);
+
+            String profileMode = resolveProfileMode(spec, options);
+            String onMissingMetric = resolveOnMissingMetric(spec, options);
+            ThresholdResult thresholdResult = ThresholdValidator.evaluate(
+                    effective.thresholds(), gcSummary, jfrSummary,
+                    null, jmhScore.score(),
+                    profileMode, onMissingMetric);
+
             try {
                 BenchmarkContext bctx = new BenchmarkContext(bench.id(), runConfiguration.runId, "success",
                         benchStart, Instant.now(), benchDuration.toMillis(),
@@ -176,17 +208,26 @@ public class BenchmarkExecutor {
                 artifactWriter.writeBenchmarkSummary(bctx);
                 jmhScore = JmhResultParser.parse(benchDir);
             } catch (IOException ae) {
-                log.error("WARNING: Could not write benchmark summary for %s: %s%n",
+                log.error("WARNING: Could not write benchmark summary for {}: {}",
                         bench.id(), ae.getMessage());
             }
 
             // Console GC summary table
-            ConsoleTable.printGcTable(bench.id(), gcSummary, jmhScore);
+            consoleTable.printGcTable(bench.id(), gcSummary, jmhScore);
+
+            // Print threshold breach warnings
+            if (thresholdResult != null && FAIL.equals(thresholdResult.status())) {
+                log.error("THRESHOLD BREACH in {}:", bench.id());
+                for (var b : thresholdResult.breaches()) {
+                    log.error("   {}: {} > {} ({})",
+                            b.field(), b.actual(), b.threshold(), b.message());
+                }
+            }
 
             log.info("Benchmark {}: completed in {}s (success)", bench.id(), benchDuration.getSeconds());
-        }
 
-        return result;
+            return new BenchmarkResult(bench.id(), jmhExitCode, benchDuration, thresholdResult);
+        }
     }
 
     private void summarizeFailedRun(String runId, BenchmarkEntry bench, EffectiveBenchmarkConfig effective, Instant benchStart, Duration benchDuration, EnvironmentInfo envInfo, Path benchDir) {
@@ -224,13 +265,17 @@ public class BenchmarkExecutor {
     }
 
     private void printSummary(String runId, List<BenchmarkResult> results, Instant startTime, Path runDir) {
-        ConsoleTable.printRunSummary(runId, results,
+        consoleTable.printRunSummary(runId, results,
                 Duration.between(startTime, Instant.now()), runDir);
     }
 
-    private int computeExitCode(List<BenchmarkResult> results) {
+    private int computeExitCode(List<BenchmarkResult> results, String profileMode) {
         boolean anyFailed = results.stream().anyMatch(BenchmarkResult::isFailure);
-        return anyFailed ? 3 : 0;
+        boolean anyThresholdBreach = "invariant".equals(profileMode) && results.stream()
+                .filter(BenchmarkResult::isSuccess)
+                .anyMatch(r -> r.thresholdResult() != null
+                        && FAIL.equals(r.thresholdResult().status()));
+        return anyFailed || anyThresholdBreach ? 3 : 0;
     }
 
     private void printBenchmarkConfig(EffectiveBenchmarkConfig config, boolean noJfr) {
@@ -287,6 +332,21 @@ public class BenchmarkExecutor {
             return bench.source().projectDir();
         }
         return bench.source().type();
+    }
+
+    private String resolveProfileMode(BenchmarkRunSpec spec, ExecutionOptions options) {
+        if (options.profile() != null) return options.profile();
+        if (spec.run() != null && spec.run().profile() != null) return spec.run().profile();
+        return "invariant";
+    }
+
+    private String resolveOnMissingMetric(BenchmarkRunSpec spec, ExecutionOptions options) {
+        if (options.strictMetrics()) return "fail";
+        if (spec.run() != null && spec.run().validation() != null
+                && spec.run().validation().onMissingMetric() != null) {
+            return spec.run().validation().onMissingMetric();
+        }
+        return "fail";
     }
 
     private record RunConfiguration(String runId, Path runsDir, Path runDir, EnvironmentInfo envInfo) {}

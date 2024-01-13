@@ -3,6 +3,7 @@ package net.szumigaj.gcobs.cli.artifact;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
 
 import java.util.List;
 import java.util.Map;
@@ -14,7 +15,7 @@ public record BenchmarkSummaryModel(String benchmarkId, String runId, String sta
                                     String finishedAt,
                                     long durationMs, Source source, Jmh jmh, JmhProfilers jmhProfilers, Jvm jvm,
                                     Map<String, String> params, String gcSummaryRef, String jfrSummaryRef,
-                                    EnvironmentInfo environment, Artifacts artifacts, List<String> warnings) {
+                                    EnvironmentInfo environment, Artifacts artifacts, List<String> warnings, ThresholdResult thresholdResult) {
 
     @Builder
     @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -43,5 +44,10 @@ public record BenchmarkSummaryModel(String benchmarkId, String runId, String sta
     public record Artifacts(List<String> gcLogs, String gcLog, String gcSummary, String gcSummaryWarmup,
                             List<String> jfrFiles, String jfrSummary, String jmhResultsJson, String jmhResultsCsv,
                             String cmdlineTxt, String stdout, String stderr, String timeseries) {
+    }
+
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record ThresholdBreach(String benchmarkId, String field, double threshold, double actual, String message) {
     }
 }

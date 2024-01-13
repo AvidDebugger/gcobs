@@ -2,7 +2,9 @@ package net.szumigaj.gcobs.cli.executor;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import net.szumigaj.gcobs.cli.artifact.ArtifactWriter;
+import net.szumigaj.gcobs.cli.compare.ComparisonEngine;
 import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.output.ConsoleTable;
 import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
@@ -78,8 +80,9 @@ class BenchmarkExecutorTest {
         assertThat(runJson.get("runId").asText()).isEqualTo("test-run-001");
 
         String reportContent = Files.readString(runDir.resolve("report.md"));
-        assertThat(reportContent).contains("# GC Observatory Run Report");
-        assertThat(reportContent).contains("test-run-001");
+        assertThat(reportContent)
+                .contains("# GC Observatory Run Report")
+                .contains("test-run-001");
     }
 
     @Test
@@ -203,7 +206,9 @@ class BenchmarkExecutorTest {
                 fakeLauncher,
                 new GcAnalyzer(),
                 new FakeJfrExtractor(),
-                new ArtifactWriter()
+                new ArtifactWriter(),
+                new ComparisonEngine(),
+                new ConsoleTable()
         );
     }
 

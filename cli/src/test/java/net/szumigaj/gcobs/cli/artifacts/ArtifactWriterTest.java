@@ -177,7 +177,7 @@ class ArtifactWriterTest {
                 .build();
 
         List<BenchmarkResult> results = List.of(
-                new BenchmarkResult("g1-test", 0, Duration.ofSeconds(30))
+                new BenchmarkResult("g1-test", 0, Duration.ofSeconds(30), null)
         );
 
         Instant start = Instant.now().minusSeconds(60);

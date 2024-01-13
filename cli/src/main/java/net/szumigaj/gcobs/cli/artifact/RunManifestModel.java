@@ -2,6 +2,7 @@ package net.szumigaj.gcobs.cli.artifact;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
+import net.szumigaj.gcobs.cli.compare.CompareResult;
 import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
 
 import java.util.List;
@@ -9,7 +10,7 @@ import java.util.List;
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record RunManifestModel(String runId, String createdAt, Tool tool, Spec spec, Profile profile,
-                               List<BenchmarkEntry> benchmarks, List<Object> comparisons,
+                               List<BenchmarkEntry> benchmarks, List<CompareResult> comparisons,
                                ThresholdSummary thresholdSummary, Execution execution, List<String> warnings,
                                EnvironmentInfo environment) {
 
@@ -43,6 +44,11 @@ public record RunManifestModel(String runId, String createdAt, Tool tool, Spec s
 
     @Builder
     @JsonInclude(JsonInclude.Include.NON_NULL)
-        public record ThresholdSummary(boolean allPassed, List<Object> breaches) {
+        public record ThresholdSummary(boolean allPassed, List<RunManifestModel.ThresholdBreach> breaches) {
+    }
+
+    @Builder
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+        public record ThresholdBreach(String benchmarkId, String field, double threshold, double actual, String message) {
     }
 }
