@@ -205,7 +205,7 @@ public class BenchmarkExecutor {
                 BenchmarkContext bctx = new BenchmarkContext(bench.id(), runConfiguration.runId, "success",
                         benchStart, Instant.now(), benchDuration.toMillis(),
                         effective, bench.source(), gcSummary, jfrSummary, runConfiguration.envInfo, benchDir);
-                artifactWriter.writeBenchmarkSummary(bctx);
+                artifactWriter.writeBenchmarkSummary(bctx, thresholdResult);
                 jmhScore = JmhResultParser.parse(benchDir);
             } catch (IOException ae) {
                 log.error("WARNING: Could not write benchmark summary for {}: {}",
@@ -235,7 +235,7 @@ public class BenchmarkExecutor {
             BenchmarkContext bctx = new BenchmarkContext(bench.id(), runId, "failed",
                     benchStart, Instant.now(), benchDuration.toMillis(),
                     effective, bench.source(), null, null, envInfo, benchDir);
-            artifactWriter.writeBenchmarkSummary(bctx);
+            artifactWriter.writeBenchmarkSummary(bctx, null);
         } catch (IOException ae) {
             log.error("WARNING: Could not write benchmark summary for %s: %s%n",
                     bench.id(), ae.getMessage());

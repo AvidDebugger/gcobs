@@ -1,13 +1,10 @@
-apiVersion: gcobs/v2
-kind: BenchmarkRun
-
 metadata:
   name: heap-sizing-batch
   description: |
     Compare G1GC performance at 256MB, 384MB, 512MB, and 768MB heap sizes
     with BatchKernel medium workload.
     Expected: 256MB -> high GC overhead + Full GC risk
-              384MB -> significantly better; Full GC eliminated
+              384MB -> significantly better, Full GC eliminated
               512MB -> marginal improvement over 384MB
               768MB -> negligible improvement over 512MB
   labels:

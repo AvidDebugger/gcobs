@@ -1,18 +1,15 @@
-apiVersion: gcobs/v2
-kind: BenchmarkRun
-
 metadata:
   name: lab02
   description: |
     Lab 02: Compare two GC configurations.
-    Compare G1GC (balanced) vs ParallelGC (throughput-optimized) on the same workload.
+    Compare G1GC (balanced) vs ParallelGC (optimized for throughput) on the same workload.
     Learning objectives:
     - Understand multi-benchmark BenchmarkRun specs
     - Read compare-result.json (verdict, deltaPct per metric)
     - Understand IMPROVEMENT vs REGRESSION vs OK verdicts
     - Understand how regressionThresholdPct works
   labels:
-    category: curriculum
+    category: lab
     lab: "02"
 
 run:

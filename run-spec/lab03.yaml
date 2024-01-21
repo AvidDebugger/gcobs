@@ -1,6 +1,3 @@
-apiVersion: gcobs/v2
-kind: BenchmarkRun
-
 metadata:
   name: lab03
   description: |
@@ -13,7 +10,7 @@ metadata:
     - Understand safepoint TTSP and why it matters even for ZGC
     - Compare JMH scoreError across G1GC and ZGC to see variance reduction
   labels:
-    category: curriculum
+    category: lab
     lab: "03"
 
 run:

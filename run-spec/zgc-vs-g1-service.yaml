@@ -1,6 +1,3 @@
-apiVersion: gcobs/v2
-kind: BenchmarkRun
-
 metadata:
   name: zgc-vs-g1-service
   description: |

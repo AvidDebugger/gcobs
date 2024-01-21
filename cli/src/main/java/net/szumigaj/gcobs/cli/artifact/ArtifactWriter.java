@@ -8,6 +8,7 @@ import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
 import net.szumigaj.gcobs.cli.model.GcSummary;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
+import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -91,7 +92,7 @@ public final class ArtifactWriter {
     private static final String FORMAT_MILLISECONDS = "%.1fms";
     private static final String FORMAT_SCORE = "%.4f%s";
 
-    public void writeBenchmarkSummary(BenchmarkContext ctx) throws IOException {
+    public void writeBenchmarkSummary(BenchmarkContext ctx, ThresholdResult thresholdResult) throws IOException {
         JmhScore jmhScore = JmhResultParser.parse(ctx.benchDir());
         EffectiveBenchmarkConfig config = ctx.config();
 
@@ -112,6 +113,7 @@ public final class ArtifactWriter {
                 .environment(ctx.environment())
                 .artifacts(buildArtifactsManifest(ctx.benchDir(), config.jfrEnabled()))
                 .warnings(collectWarnings(ctx))
+                .thresholdResult(thresholdResult)
                 .build();
 
         JsonWriter.write(ctx.benchDir().resolve(BENCHMARK_SUMMARY_JSON), summaryModel);

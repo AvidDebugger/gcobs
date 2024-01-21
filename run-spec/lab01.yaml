@@ -1,6 +1,3 @@
-apiVersion: gcobs/v2
-kind: BenchmarkRun
-
 metadata:
   name: lab01
   description: |
@@ -10,9 +7,8 @@ metadata:
     - Run gcobs with profile: invariant
     - Read gc-summary.json (gcOverheadPct, pause.p99Ms, heap.peakUsedMb)
     - Read jfr-summary.json (allocationStalls, safepoint.ttspMaxMs)
-    - Understand the four golden GC signals (Latency, Traffic, Errors, Saturation)
   labels:
-    category: curriculum
+    category: lab
     lab: "01"
 
 run:

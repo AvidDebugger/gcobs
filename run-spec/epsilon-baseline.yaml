@@ -3,7 +3,7 @@ metadata:
   description: |
     Measure pure allocation cost with EpsilonGC (zero collection overhead).
     This establishes the theoretical minimum benchmark score.
-    G1GC overhead = gcOverheadPct.
+    G1GC overhead = gcOverheadPct reported by gc-summary.json.
     EpsilonGC score reveals the maximum potential improvement from optimizing GC.
   labels:
     category: baseline

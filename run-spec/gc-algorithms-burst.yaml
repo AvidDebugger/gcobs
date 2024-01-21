@@ -1,11 +1,8 @@
-apiVersion: gcobs/v2
-kind: BenchmarkRun
-
 metadata:
   name: gc-algorithms-burst
   description: |
     Compare GC algorithms under high allocation pressure (burst workload config).
-    High batchSize and payloadBytes create heap pressure; tests Full GC behavior.
+    High batchSize and payloadBytes create heap pressure, tests Full GC behavior.
     Hypothesis: ZGC and G1GC avoid Full GC where SerialGC fails.
   labels:
     category: gc-comparison

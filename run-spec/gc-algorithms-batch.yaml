@@ -34,7 +34,7 @@ observability:
 benchmarks:
 
   - id: serial-batch
-    description: "BatchKernel under SerialGC (single-threaded; latency baseline)"
+    description: "BatchKernel under SerialGC (single-threaded, latency baseline)"
     source:
       type: internal
       module: benchmark-batch-jmh
@@ -114,6 +114,27 @@ benchmarks:
     thresholds:
       gcPauseP99MaxMs: 10
       gcAllocationStallsMax: 0
+
+  - id: shenandoah-batch
+    description: "BatchKernel under Shenandoah (concurrent, low-pause)"
+    source:
+      type: internal
+      module: benchmark-batch-jmh
+    jvm:
+      args:
+        - -XX:+UseShenandoahGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*batchKernelChecksum.*"
+    params:
+      iterations: 12
+      batchSize: 80
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 20
+      gcFullCountMax: 0
 
 compare:
   pairs:

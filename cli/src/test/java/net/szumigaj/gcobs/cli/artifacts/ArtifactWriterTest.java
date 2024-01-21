@@ -8,6 +8,7 @@ import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
 import net.szumigaj.gcobs.cli.model.*;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
+import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -60,7 +61,12 @@ class ArtifactWriterTest {
         Files.writeString(benchDir.resolve("jmh.stderr.log"), "stderr");
 
         BenchmarkContext ctx = createBenchmarkContext(benchDir, "g1-test", "success");
-        artifactWriter.writeBenchmarkSummary(ctx);
+
+        ThresholdResult thresholdResult = ThresholdResult.builder()
+                .status(ThresholdResult.ThresholdStatus.SKIPPED)
+                .build();
+
+        artifactWriter.writeBenchmarkSummary(ctx, thresholdResult);
 
         // Verify benchmark-summary.json
         Path summaryPath = benchDir.resolve("benchmark-summary.json");
@@ -90,6 +96,8 @@ class ArtifactWriterTest {
         JsonNode artifacts = root.get("artifacts");
         assertThat(artifacts.get("jmhResultsJson").asText()).isEqualTo("jmh-results.json");
         assertThat(artifacts.get("cmdlineTxt").asText()).isEqualTo("jmh.cmdline.txt");
+
+        assertThat(root.get("thresholdResult").get("status").asText()).isEqualTo("SKIPPED");
     }
 
     @Test
@@ -98,7 +106,7 @@ class ArtifactWriterTest {
         Files.createDirectories(benchDir);
 
         BenchmarkContext ctx = createBenchmarkContext(benchDir, "failed-test", "failed");
-        artifactWriter.writeBenchmarkSummary(ctx);
+        artifactWriter.writeBenchmarkSummary(ctx, null);
 
         JsonNode root = JsonWriter.mapper().readTree(
                 benchDir.resolve("benchmark-summary.json").toFile());
