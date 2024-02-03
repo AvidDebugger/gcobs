@@ -101,4 +101,12 @@ public final class MetricExtractor {
             return null;
         }
     }
+
+    public static Double extractScoreError(Path benchDir) {
+        JsonNode root = readJson(benchDir, "benchmark-summary.json");
+        if (root == null) return null;
+        JsonNode jmh = root.path("jmh");
+        JsonNode scoreError = jmh.get("scoreError");
+        return (scoreError != null && !scoreError.isNull()) ? scoreError.asDouble() : null;
+    }
 }

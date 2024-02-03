@@ -232,9 +232,9 @@ class ComparisonEngineTest {
                 List.of(metric("gcOverheadPct", 20.0), metric("gcPauseP99Ms", 20.0)));
 
         writeJson(baseRunDir, "run.json",
-                "{\"environment\":{\"availableProcessors\":8,\"javaVersion\":\"21\",\"physicalMemoryMb\":16384}}");
+                "{\"environment\":{\"availableProcessors\":8,\"javaVersion\":\"17\",\"physicalMemoryMb\":16384}}");
         writeJson(candRunDir, "run.json",
-                "{\"environment\":{\"availableProcessors\":4,\"javaVersion\":\"21\",\"physicalMemoryMb\":16384}}");
+                "{\"environment\":{\"availableProcessors\":4,\"javaVersion\":\"17\",\"physicalMemoryMb\":16384}}");
 
         CompareResult result = comparisonEngine.comparePair(pair,
                 baseRunDir,
@@ -244,6 +244,82 @@ class ComparisonEngineTest {
         List<String> warnings = result.environmentMatch().warnings();
         assertThat(warnings).hasSize(1);
         assertThat(warnings.get(0)).contains("CPU count");
+    }
+
+    // --- Confidence-aware tests ---
+
+    @Test
+    void confidenceAware_overridesRegressionToOk_whenCIsOverlap() throws IOException {
+        // base=1.0, scoreError=0.2 -> halfCI_95≈0.119 -> CI=[0.881,1.119]
+        // cand=1.2, scoreError=0.2 -> CI=[1.081,1.319]  ->  CIs overlap -> override to OK
+        // deltaPct=+20% exceeds the 15% threshold -> would be REGRESSION without confidence
+        Path runDir = setupRunDirWithScoreError("base-bench", "cand-bench",
+                1.0, 0.2, 1.2, 0.2);
+
+        ComparisonPair pair = pair("test-compare", "base-bench", "cand-bench",
+                List.of(metric("jmhScore", 15.0)));
+
+        CompareResult result = comparisonEngine.comparePair(pair,
+                runDir, runDir, "base-bench", "cand-bench", "invariant", false);
+
+        CompareResult.MetricDelta md = result.metrics().get(0);
+        assertThat(md.status()).isEqualTo(CompareResult.MetricDelta.Status.OK);
+        assertThat(md.confidence()).isNotNull();
+        assertThat(md.confidence().significant()).isFalse();
+    }
+
+    @Test
+    void confidenceAware_preservesRegression_whenCIsDoNotOverlap() throws IOException {
+        // base=1.0, scoreError=0.01 -> halfCI_95≈0.006 -> CI=[0.994,1.006]
+        // cand=1.2, scoreError=0.01 -> CI=[1.194,1.206]  ->  no overlap -> REGRESSION preserved
+        Path runDir = setupRunDirWithScoreError("base-bench", "cand-bench",
+                1.0, 0.01, 1.2, 0.01);
+
+        ComparisonPair pair = pair("test-compare", "base-bench", "cand-bench",
+                List.of(metric("jmhScore", 15.0)));
+
+        CompareResult result = comparisonEngine.comparePair(pair,
+                runDir, runDir, "base-bench", "cand-bench", "invariant", false);
+
+        CompareResult.MetricDelta md = result.metrics().get(0);
+        assertThat(md.status()).isEqualTo(CompareResult.MetricDelta.Status.REGRESSION);
+        assertThat(md.confidence()).isNotNull();
+        assertThat(md.confidence().significant()).isTrue();
+    }
+
+    @Test
+    void confidenceAware_populatesConfidenceFields() throws IOException {
+        Path runDir = setupRunDirWithScoreError("base-bench", "cand-bench",
+                1.0, 0.2, 1.2, 0.2);
+
+        ComparisonPair pair = pair("test-compare", "base-bench", "cand-bench",
+                List.of(metric("jmhScore", 15.0)));
+
+        CompareResult result = comparisonEngine.comparePair(pair,
+                runDir, runDir, "base-bench", "cand-bench", "invariant", false);
+
+        CompareResult.Confidence confidence = result.metrics().get(0).confidence();
+        assertThat(confidence).isNotNull();
+        assertThat(confidence.method()).isEqualTo("jmh-scoreError");
+        assertThat(confidence.level()).isEqualTo(0.95);
+        assertThat(confidence.baseCi()).hasSize(2);
+        assertThat(confidence.candidateCi()).hasSize(2);
+        assertThat(confidence.significant()).isFalse();
+    }
+
+    @Test
+    void noConfidence_whenScoreErrorAbsent() throws IOException {
+        // setupRunDir writes benchmark-summary.json without scoreError
+        Path runDir = setupRunDir("base-bench", "cand-bench",
+                gcSummary(5.0, 80.0), gcSummary(2.0, 30.0));
+
+        ComparisonPair pair = pair("test-compare", "base-bench", "cand-bench",
+                List.of(metric("jmhScore", 15.0)));
+
+        CompareResult result = comparisonEngine.comparePair(pair,
+                runDir, runDir, "base-bench", "cand-bench", "invariant", false);
+
+        assertThat(result.metrics().get(0).confidence()).isNull();
     }
 
     // --- Helpers ---
@@ -294,6 +370,24 @@ class ComparisonEngineTest {
                 .name(name)
                 .regressionThresholdPct(regressionThresholdPct)
                 .build();
+    }
+
+    private Path setupRunDirWithScoreError(String baseId, String candId,
+                                           double baseScore, double baseScoreError,
+                                           double candScore, double candScoreError) throws IOException {
+        Path runDir = tempDir.resolve("run-score-error");
+        Path baseDir = runDir.resolve("benchmarks/" + baseId);
+        Path candDir = runDir.resolve("benchmarks/" + candId);
+        Files.createDirectories(baseDir);
+        Files.createDirectories(candDir);
+
+        writeJson(baseDir, "benchmark-summary.json",
+                String.format("{\"status\":\"success\",\"jmh\":{\"score\":%s,\"scoreError\":%s}}",
+                        baseScore, baseScoreError));
+        writeJson(candDir, "benchmark-summary.json",
+                String.format("{\"status\":\"success\",\"jmh\":{\"score\":%s,\"scoreError\":%s}}",
+                        candScore, candScoreError));
+        return runDir;
     }
 
     private void writeJson(Path dir, String filename, String content) throws IOException {

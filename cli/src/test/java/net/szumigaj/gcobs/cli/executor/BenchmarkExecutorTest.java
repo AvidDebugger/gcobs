@@ -170,6 +170,74 @@ class BenchmarkExecutorTest {
         assertThat(runJson.get("benchmarks").get(0).get("id").asText()).isEqualTo("bench-2");
     }
 
+    @Test
+    void rigorWarnings_appearsInSummary_whenForksBelowMinimum() throws IOException {
+        writeSpecWithLowRigor("low-forks-bench", 5, 5, 1);
+        FakeJmhLauncher fakeLauncher = new FakeJmhLauncher(0);
+
+        BenchmarkExecutor executor = createExecutor(fakeLauncher);
+        ExecutionOptions options = ExecutionOptions.builder()
+                .projectRoot(projectRoot)
+                .specPath(specPath)
+                .runId("rigor-run-forks")
+                .runsDir(runsDir)
+                .noJfr(true)
+                .benchmarkFilter(null)
+                .dryRun(false)
+                .build();
+
+        BenchmarkRunSpec spec = new SpecLoader().load(specPath);
+        executor.execute(spec, options);
+
+        Path benchDir = runsDir.resolve("rigor-run-forks/benchmarks/low-forks-bench");
+        JsonNode summary = JsonWriter.mapper().readTree(benchDir.resolve("benchmark-summary.json").toFile());
+        JsonNode warnings = summary.get("warnings");
+        assertThat(warnings).isNotNull();
+        assertThat(warnings.isArray()).isTrue();
+        boolean hasForksWarning = false;
+        for (JsonNode w : warnings) {
+            if (w.asText().contains("forks") && w.asText().contains("below recommended minimum")) {
+                hasForksWarning = true;
+                break;
+            }
+        }
+        assertThat(hasForksWarning).isTrue();
+    }
+
+    @Test
+    void rigorWarnings_appearsInSummary_whenWarmupBelowMinimum() throws IOException {
+        writeSpecWithLowRigor("low-warmup-bench", 1, 5, 3);
+        FakeJmhLauncher fakeLauncher = new FakeJmhLauncher(0);
+
+        BenchmarkExecutor executor = createExecutor(fakeLauncher);
+        ExecutionOptions options = ExecutionOptions.builder()
+                .projectRoot(projectRoot)
+                .specPath(specPath)
+                .runId("rigor-run-warmup")
+                .runsDir(runsDir)
+                .noJfr(true)
+                .benchmarkFilter(null)
+                .dryRun(false)
+                .build();
+
+        BenchmarkRunSpec spec = new SpecLoader().load(specPath);
+        executor.execute(spec, options);
+
+        Path benchDir = runsDir.resolve("rigor-run-warmup/benchmarks/low-warmup-bench");
+        JsonNode summary = JsonWriter.mapper().readTree(benchDir.resolve("benchmark-summary.json").toFile());
+        JsonNode warnings = summary.get("warnings");
+        assertThat(warnings).isNotNull();
+        assertThat(warnings.isArray()).isTrue();
+        boolean hasWarmupWarning = false;
+        for (JsonNode w : warnings) {
+            if (w.asText().contains("warmup") && w.asText().contains("below recommended minimum")) {
+                hasWarmupWarning = true;
+                break;
+            }
+        }
+        assertThat(hasWarmupWarning).isTrue();
+    }
+
     private void writeMinimalSpec(String benchmarkId) throws IOException {
         specPath = tempDir.resolve("spec.yaml");
         Files.writeString(specPath, """
@@ -181,6 +249,23 @@ class BenchmarkExecutorTest {
                       type: internal
                       module: benchmark-ephemeral-jmh
                 """.formatted(benchmarkId));
+    }
+
+    private void writeSpecWithLowRigor(String benchmarkId, int warmupIterations, int measurementIterations, int forks) throws IOException {
+        specPath = tempDir.resolve("spec.yaml");
+        Files.writeString(specPath, """
+                metadata:
+                  name: test-spec
+                jmh:
+                  warmupIterations: %d
+                  measurementIterations: %d
+                  forks: %d
+                benchmarks:
+                  - id: %s
+                    source:
+                      type: internal
+                      module: benchmark-ephemeral-jmh
+                """.formatted(warmupIterations, measurementIterations, forks, benchmarkId));
     }
 
     private void writeTwoBenchmarkSpec() throws IOException {

@@ -14,7 +14,7 @@ public record CompareResult(String pairId, String baseBenchmarkId, String candid
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record MetricDelta(String name, Double baseValue, Double candidateValue, Double delta, Double deltaPct,
                               Status status, Double threshold, ThresholdType thresholdType, Direction direction,
-                              Boolean diagnostic) {
+                              Boolean diagnostic, Confidence confidence) {
         public enum Status {
             REGRESSION, IMPROVEMENT, OK, UNKNOWN
         }
@@ -31,6 +31,10 @@ public record CompareResult(String pairId, String baseBenchmarkId, String candid
     @Builder
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record EnvironmentMatch(boolean compatible, List<String> warnings) {
+    }
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record Confidence(String method, double level, double[] baseCi, double[] candidateCi, boolean significant) {
     }
 
 }

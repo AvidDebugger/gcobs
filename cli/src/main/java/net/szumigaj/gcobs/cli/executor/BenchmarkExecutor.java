@@ -166,6 +166,8 @@ public class BenchmarkExecutor {
         ResolvedSource source = sourceResolver.resolve(bench.source(), options.projectRoot());
         printBenchmarkConfig(effective, options.noJfr());
 
+        List<String> rigorWarnings = emitRigorWarnings(effective);
+
         Instant benchStart = Instant.now();
         int jmhExitCode;
         try {
@@ -204,8 +206,9 @@ public class BenchmarkExecutor {
             try {
                 BenchmarkContext bctx = new BenchmarkContext(bench.id(), runConfiguration.runId, "success",
                         benchStart, Instant.now(), benchDuration.toMillis(),
-                        effective, bench.source(), gcSummary, jfrSummary, runConfiguration.envInfo, benchDir);
-                artifactWriter.writeBenchmarkSummary(bctx, thresholdResult);
+                        effective, bench.source(), gcSummary, jfrSummary, runConfiguration.envInfo, benchDir,
+                        thresholdResult, rigorWarnings);
+                artifactWriter.writeBenchmarkSummary(bctx);
                 jmhScore = JmhResultParser.parse(benchDir);
             } catch (IOException ae) {
                 log.error("WARNING: Could not write benchmark summary for {}: {}",
@@ -234,8 +237,9 @@ public class BenchmarkExecutor {
         try {
             BenchmarkContext bctx = new BenchmarkContext(bench.id(), runId, "failed",
                     benchStart, Instant.now(), benchDuration.toMillis(),
-                    effective, bench.source(), null, null, envInfo, benchDir);
-            artifactWriter.writeBenchmarkSummary(bctx, null);
+                    effective, bench.source(), null, null, envInfo, benchDir,
+                    null, null);
+            artifactWriter.writeBenchmarkSummary(bctx);
         } catch (IOException ae) {
             log.error("WARNING: Could not write benchmark summary for %s: %s%n",
                     bench.id(), ae.getMessage());
@@ -347,6 +351,32 @@ public class BenchmarkExecutor {
             return spec.run().validation().onMissingMetric();
         }
         return "fail";
+    }
+
+    private List<String> emitRigorWarnings(EffectiveBenchmarkConfig config) {
+        List<String> warnings = new ArrayList<>();
+        if (config.warmupIterations() < 3) {
+            String msg = String.format(
+                    "JMH warmup iterations (%d) is below recommended minimum (3). Statistical validity may be reduced.",
+                    config.warmupIterations());
+            log.error("[gcobs] WARNING: {}", msg);
+            warnings.add(msg);
+        }
+        if (config.measurementIterations() < 3) {
+            String msg = String.format(
+                    "JMH measurement iterations (%d) is below recommended minimum (3).",
+                    config.measurementIterations());
+            log.error("[gcobs] WARNING: {}", msg);
+            warnings.add(msg);
+        }
+        if (config.forks() < 2) {
+            String msg = String.format(
+                    "JMH forks (%d) is below recommended minimum (2). Run-to-run variance will not be captured.",
+                    config.forks());
+            log.error("[gcobs] WARNING: {}", msg);
+            warnings.add(msg);
+        }
+        return warnings;
     }
 
     private record RunConfiguration(String runId, Path runsDir, Path runDir, EnvironmentInfo envInfo) {}

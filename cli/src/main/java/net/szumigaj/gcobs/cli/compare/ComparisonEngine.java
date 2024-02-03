@@ -20,6 +20,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
+import static net.szumigaj.gcobs.cli.compare.CompareResult.MetricDelta.Status.IMPROVEMENT;
+import static net.szumigaj.gcobs.cli.compare.CompareResult.MetricDelta.Status.REGRESSION;
+
 @Slf4j
 @Singleton
 public class ComparisonEngine {
@@ -135,10 +138,10 @@ public class ComparisonEngine {
     }
 
     public CompareResult comparePair(ComparisonPair pair,
-                                      Path baseRunDir, Path candidateRunDir,
-                                      String baseBenchId, String candBenchId,
-                                      String profileMode,
-                                      boolean requireEnvMatch) {
+                                     Path baseRunDir, Path candidateRunDir,
+                                     String baseBenchId, String candBenchId,
+                                     String profileMode,
+                                     boolean requireEnvMatch) {
         CompareResult.CompareResultBuilder resultBuilder = CompareResult.builder()
                 .pairId(pair.id())
                 .baseBenchmarkId(pair.base())
@@ -159,6 +162,12 @@ public class ComparisonEngine {
             // Resolve metrics to compare
             List<ComparisonMetric> metricsToCompare = (pair.metrics() != null && !pair.metrics().isEmpty())
                     ? pair.metrics() : DEFAULT_METRICS;
+
+            // Read scoreError for confidence-aware comparison on jmhScore
+            Double baseScoreError = MetricExtractor.extractScoreError(baseBenchDir);
+            Double candScoreError = MetricExtractor.extractScoreError(candBenchDir);
+            boolean confidenceAvailable = baseScoreError != null && candScoreError != null
+                    && baseScoreError > 0 && candScoreError > 0;
 
             // Compute deltas
             List<CompareResult.MetricDelta> deltas = new ArrayList<>();
@@ -184,10 +193,40 @@ public class ComparisonEngine {
                 CompareResult.MetricDelta.ThresholdType thresholdType = metric.regressionThresholdPct() != null ? CompareResult.MetricDelta.ThresholdType.PERCENTAGE
                         : (metric.regressionThresholdAbsolute() != null ? CompareResult.MetricDelta.ThresholdType.ABSOLUTE : null);
 
-                deltas.add(new CompareResult.MetricDelta(
-                        metric.name(), baseVal, candVal, delta, deltaPct, status,
+
+                CompareResult.Confidence confidence = null;
+                CompareResult.MetricDelta.Status metricDeltaStatus = status;
+
+                // Confidence-aware override for jmhScore
+                if ("jmhScore".equals(metric.name()) && confidenceAvailable
+                        && baseVal != null && candVal != null) {
+                    // Convert JMH scoreError (99.9% CI half-width) to 95% CI
+                    // JMH uses t-distribution; approximate: halfCI_95 = scoreError * (1.96 / 3.291)
+                    double factor = 1.96 / 3.291;
+                    double baseHalfCi = baseScoreError * factor;
+                    double candHalfCi = candScoreError * factor;
+                    double[] baseCi = {baseVal - baseHalfCi, baseVal + baseHalfCi};
+                    double[] candCi = {candVal - candHalfCi, candVal + candHalfCi};
+
+                    // CIs overlap if max(low) < min(high)
+                    boolean overlapping = Math.max(baseCi[0], candCi[0]) < Math.min(baseCi[1], candCi[1]);
+                    boolean significant = !overlapping;
+
+                    confidence = new CompareResult.Confidence(
+                            "jmh-scoreError", 0.95, baseCi, candCi, significant);
+
+                    // If CIs overlap, override to OK (not statistically significant)
+                    if (overlapping && (REGRESSION.equals(status) || IMPROVEMENT.equals(status))) {
+                        metricDeltaStatus = CompareResult.MetricDelta.Status.OK;
+                    }
+                }
+
+                CompareResult.MetricDelta md = new CompareResult.MetricDelta(
+                        metric.name(), baseVal, candVal, delta, deltaPct, metricDeltaStatus,
                         threshold, thresholdType, CompareResult.MetricDelta.Direction.LOWER_IS_BETTER,
-                        isDiagnostic ? true : null));
+                        isDiagnostic ? true : null, confidence);
+
+                deltas.add(md);
             }
             resultBuilder.metrics(deltas);
 
@@ -221,30 +260,30 @@ public class ComparisonEngine {
     }
 
     private CompareResult.MetricDelta.Status evaluateMetricStatus(Double delta, Double deltaPct,
-                                        ComparisonMetric cm) {
+                                                                  ComparisonMetric cm) {
         // All metrics are lower-is-better: positive delta = regression
         if (cm.regressionThresholdPct() != null && deltaPct != null) {
             if (deltaPct > cm.regressionThresholdPct()) {
-                return CompareResult.MetricDelta.Status.REGRESSION;
+                return REGRESSION;
             } else if (deltaPct < -cm.regressionThresholdPct()) {
-                return CompareResult.MetricDelta.Status.IMPROVEMENT;
+                return IMPROVEMENT;
             }
             return CompareResult.MetricDelta.Status.OK;
         }
 
         if (cm.regressionThresholdAbsolute() != null && delta != null) {
             if (delta > cm.regressionThresholdAbsolute()) {
-                return CompareResult.MetricDelta.Status.REGRESSION;
+                return REGRESSION;
             } else if (delta < -cm.regressionThresholdAbsolute()) {
-                return CompareResult.MetricDelta.Status.IMPROVEMENT;
+                return IMPROVEMENT;
             }
             return CompareResult.MetricDelta.Status.OK;
         }
 
         // No threshold declared, just report direction
         if (delta != null) {
-            if (delta > 0) return CompareResult.MetricDelta.Status.REGRESSION;
-            if (delta < 0) return CompareResult.MetricDelta.Status.IMPROVEMENT;
+            if (delta > 0) return REGRESSION;
+            if (delta < 0) return IMPROVEMENT;
         }
         return CompareResult.MetricDelta.Status.OK;
     }
@@ -256,8 +295,8 @@ public class ComparisonEngine {
         for (var d : deltas) {
             // Diagnostic metrics don't affect verdict
             if (Boolean.TRUE.equals(d.diagnostic())) continue;
-            if (CompareResult.MetricDelta.Status.REGRESSION.equals(d.status())) anyRegression = true;
-            if (CompareResult.MetricDelta.Status.IMPROVEMENT.equals(d.status())) anyImprovement = true;
+            if (REGRESSION.equals(d.status())) anyRegression = true;
+            if (IMPROVEMENT.equals(d.status())) anyImprovement = true;
         }
 
         // Check if all non-diagnostic metrics are UNKNOWN
@@ -343,13 +382,23 @@ public class ComparisonEngine {
                                         Path baseBenchDir, Path candBenchDir,
                                         boolean requireEnvMatch) throws IOException {
 
-        CompareResultModel.DecisionContext dc = CompareResultModel.DecisionContext.builder()
+        CompareResultModel.DecisionContext.DecisionContextBuilder decisionContextBuilder = CompareResultModel.DecisionContext.builder()
                 .thresholdPolicy("explicit-only")
                 .missingThresholds(Collections.emptyList())
                 .confidenceAware(false)
                 .requireEnvMatch(requireEnvMatch)
-                .suppressedByEnvMismatch(false)
-                .build();
+                .suppressedByEnvMismatch(false);
+
+        // Set confidence-aware fields if any metric has confidence data
+        boolean hasConfidence = result.metrics() != null && result.metrics().stream()
+                .anyMatch(m -> m.confidence() != null);
+        if (hasConfidence) {
+            decisionContextBuilder.confidenceAware(true)
+                    .confidenceMethod("jmh-scoreError")
+                    .confidenceLevel("0.95");
+        }
+
+        CompareResultModel.DecisionContext decisionContext = decisionContextBuilder.build();
 
         CompareResultModel model = CompareResultModel.builder()
                 .comparisonId(pair.id())
@@ -358,7 +407,7 @@ public class ComparisonEngine {
                 .base(new CompareResultModel.RunRef(baseRunId, pair.base(), readJvmArgs(baseBenchDir)))
                 .candidate(new CompareResultModel.RunRef(candRunId, pair.candidate(), readJvmArgs(candBenchDir)))
                 .environmentMatch(result.environmentMatch())
-                .decisionContext(dc)
+                .decisionContext(decisionContext)
                 .verdict(result.verdict())
                 .metrics(result.metrics())
                 .warnings(Collections.emptyList())

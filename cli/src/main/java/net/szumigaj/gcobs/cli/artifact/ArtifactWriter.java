@@ -92,7 +92,7 @@ public final class ArtifactWriter {
     private static final String FORMAT_MILLISECONDS = "%.1fms";
     private static final String FORMAT_SCORE = "%.4f%s";
 
-    public void writeBenchmarkSummary(BenchmarkContext ctx, ThresholdResult thresholdResult) throws IOException {
+    public void writeBenchmarkSummary(BenchmarkContext ctx) throws IOException {
         JmhScore jmhScore = JmhResultParser.parse(ctx.benchDir());
         EffectiveBenchmarkConfig config = ctx.config();
 
@@ -113,7 +113,7 @@ public final class ArtifactWriter {
                 .environment(ctx.environment())
                 .artifacts(buildArtifactsManifest(ctx.benchDir(), config.jfrEnabled()))
                 .warnings(collectWarnings(ctx))
-                .thresholdResult(thresholdResult)
+                .thresholdResult(ctx.thresholdResult())
                 .build();
 
         JsonWriter.write(ctx.benchDir().resolve(BENCHMARK_SUMMARY_JSON), summaryModel);
@@ -193,6 +193,10 @@ public final class ArtifactWriter {
 
         if (ctx.jfrSummary() != null && ctx.jfrSummary().warnings() != null) {
             warnings.addAll(ctx.jfrSummary().warnings());
+        }
+
+        if (ctx.rigorWarnings() != null) {
+            warnings.addAll(ctx.rigorWarnings());
         }
 
         return warnings.isEmpty() ? null : warnings;

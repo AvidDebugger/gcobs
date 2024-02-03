@@ -60,13 +60,14 @@ class ArtifactWriterTest {
         Files.writeString(benchDir.resolve("jmh.stdout.log"), "stdout");
         Files.writeString(benchDir.resolve("jmh.stderr.log"), "stderr");
 
-        BenchmarkContext ctx = createBenchmarkContext(benchDir, "g1-test", "success");
-
         ThresholdResult thresholdResult = ThresholdResult.builder()
                 .status(ThresholdResult.ThresholdStatus.SKIPPED)
                 .build();
 
-        artifactWriter.writeBenchmarkSummary(ctx, thresholdResult);
+        BenchmarkContext ctx = createBenchmarkContext(benchDir, "g1-test", "success", thresholdResult);
+
+
+        artifactWriter.writeBenchmarkSummary(ctx);
 
         // Verify benchmark-summary.json
         Path summaryPath = benchDir.resolve("benchmark-summary.json");
@@ -105,14 +106,31 @@ class ArtifactWriterTest {
         Path benchDir = tempDir.resolve("benchmarks/failed-test");
         Files.createDirectories(benchDir);
 
-        BenchmarkContext ctx = createBenchmarkContext(benchDir, "failed-test", "failed");
-        artifactWriter.writeBenchmarkSummary(ctx, null);
+        BenchmarkContext ctx = createBenchmarkContext(benchDir, "failed-test", "failed", null);
+        artifactWriter.writeBenchmarkSummary(ctx);
 
         JsonNode root = JsonWriter.mapper().readTree(
                 benchDir.resolve("benchmark-summary.json").toFile());
         assertThat(root.get("status").asText()).isEqualTo("failed");
         // JMH score should be null (absent)
         assertThat(root.get("jmh").has("score")).isFalse();
+    }
+
+    @Test
+    void writeBenchmarkSummary_includesRigorWarnings() throws IOException {
+        Path benchDir = tempDir.resolve("benchmarks/rigor-test");
+        Files.createDirectories(benchDir);
+
+        List<String> warnings = List.of(
+                "JMH forks (1) is below recommended minimum (2). Run-to-run variance will not be captured.");
+        BenchmarkContext ctx = createBenchmarkContextWithRigorWarnings(benchDir, "rigor-test", "success", warnings);
+        artifactWriter.writeBenchmarkSummary(ctx);
+
+        JsonNode root = JsonWriter.mapper().readTree(benchDir.resolve("benchmark-summary.json").toFile());
+        JsonNode warningsNode = root.get("warnings");
+        assertThat(warningsNode).isNotNull();
+        assertThat(warningsNode.isArray()).isTrue();
+        assertThat(warningsNode.get(0).asText()).contains("forks (1) is below recommended minimum (2)");
     }
 
     @Test
@@ -138,7 +156,38 @@ class ArtifactWriterTest {
 
     // --- Helpers ---
 
-    private BenchmarkContext createBenchmarkContext(Path benchDir, String id, String status) {
+    private BenchmarkContext createBenchmarkContextWithRigorWarnings(Path benchDir, String id, String status, List<String> rigorWarnings) {
+        SourceConfig source = SourceConfig.builder()
+                .type("internal")
+                .module("benchmark-batch-jmh")
+                .build();
+
+        EffectiveBenchmarkConfig config = new EffectiveBenchmarkConfig(
+                id, source,
+                List.of("-XX:+UseG1GC", "-Xms256m", "-Xmx256m"),
+                Collections.emptyMap(),
+                5, 5, 1, 1,
+                ".*batchKernelChecksum.*",
+                Map.of("iterations", "10"),
+                false, null, "gc*,safepoint*,gc+promotion",
+                false, false, null, false, null
+        );
+
+        EnvironmentInfo env = EnvironmentInfo.builder()
+                .javaVersion("17.0.1")
+                .osName("Linux")
+                .availableProcessors(8)
+                .build();
+
+        Instant start = Instant.now().minusSeconds(30);
+        Instant end = Instant.now();
+
+        return new BenchmarkContext(id, "test-run", status,
+                start, end, Duration.between(start, end).toMillis(),
+                config, source, null, null, env, benchDir, null, rigorWarnings);
+    }
+
+    private BenchmarkContext createBenchmarkContext(Path benchDir, String id, String status, ThresholdResult thresholdResult) {
         SourceConfig source = SourceConfig.builder()
                 .type("internal")
                 .module("benchmark-batch-jmh")
@@ -166,7 +215,7 @@ class ArtifactWriterTest {
 
         return new BenchmarkContext(id, "test-run", status,
                 start, end, Duration.between(start, end).toMillis(),
-                config, source, null, null, env, benchDir);
+                config, source, null, null, env, benchDir, thresholdResult, null);
     }
 
     private RunContext createRunContext(Path runDir, Path specPath) {
