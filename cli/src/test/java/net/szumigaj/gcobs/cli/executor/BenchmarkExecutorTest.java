@@ -9,6 +9,7 @@ import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
 import net.szumigaj.gcobs.cli.telemetry.JfrExtractor;
+import net.szumigaj.gcobs.cli.telemetry.TimeseriesGenerator;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -238,6 +239,60 @@ class BenchmarkExecutorTest {
         assertThat(hasWarmupWarning).isTrue();
     }
 
+    @Test
+    void timeseriesEnabled_producesTimeseriesJsonl() throws IOException {
+        writeSpecWithTimeseries("timeseries-bench");
+        FakeJmhLauncher fakeLauncher = new FakeJmhLauncherWithIterations(0);
+
+        BenchmarkExecutor executor = createExecutor(fakeLauncher);
+        ExecutionOptions options = ExecutionOptions.builder()
+                .projectRoot(projectRoot)
+                .specPath(specPath)
+                .runId("timeseries-run")
+                .runsDir(runsDir)
+                .noJfr(true)
+                .benchmarkFilter(null)
+                .dryRun(false)
+                .build();
+
+        BenchmarkRunSpec spec = new SpecLoader().load(specPath);
+        int exitCode = executor.execute(spec, options);
+
+        assertThat(exitCode).isZero();
+
+        Path benchDir = runsDir.resolve("timeseries-run/benchmarks/timeseries-bench");
+        Path timeseriesFile = benchDir.resolve("metrics-timeseries.jsonl");
+        assertThat(timeseriesFile).exists();
+        List<String> lines = Files.readAllLines(timeseriesFile);
+        assertThat(lines).hasSize(3); // 1 warmup + 2 measurement
+        assertThat(lines.get(0)).contains("\"phase\":\"warmup\"");
+        assertThat(lines.get(1)).contains("\"phase\":\"measurement\"");
+        assertThat(lines.get(2)).contains("\"phase\":\"measurement\"");
+    }
+
+    @Test
+    void timeseriesDisabled_doesNotProduceTimeseriesJsonl() throws IOException {
+        writeMinimalSpec("no-timeseries-bench");
+        FakeJmhLauncher fakeLauncher = new FakeJmhLauncherWithIterations(0);
+
+        BenchmarkExecutor executor = createExecutor(fakeLauncher);
+        ExecutionOptions options = ExecutionOptions.builder()
+                .projectRoot(projectRoot)
+                .specPath(specPath)
+                .runId("no-timeseries-run")
+                .runsDir(runsDir)
+                .noJfr(true)
+                .benchmarkFilter(null)
+                .dryRun(false)
+                .build();
+
+        BenchmarkRunSpec spec = new SpecLoader().load(specPath);
+        executor.execute(spec, options);
+
+        Path benchDir = runsDir.resolve("no-timeseries-run/benchmarks/no-timeseries-bench");
+        assertThat(benchDir.resolve("metrics-timeseries.jsonl")).doesNotExist();
+    }
+
     private void writeMinimalSpec(String benchmarkId) throws IOException {
         specPath = tempDir.resolve("spec.yaml");
         Files.writeString(specPath, """
@@ -285,6 +340,22 @@ class BenchmarkExecutorTest {
                 """);
     }
 
+    private void writeSpecWithTimeseries(String benchmarkId) throws IOException {
+        specPath = tempDir.resolve("spec.yaml");
+        Files.writeString(specPath, """
+                metadata:
+                  name: test-spec
+                observability:
+                  timeseries:
+                    enabled: true
+                benchmarks:
+                  - id: %s
+                    source:
+                      type: internal
+                      module: benchmark-ephemeral-jmh
+                """.formatted(benchmarkId));
+    }
+
     private BenchmarkExecutor createExecutor(FakeJmhLauncher fakeLauncher) {
         return new BenchmarkExecutor(
                 new FakeSourceResolver(),
@@ -293,7 +364,8 @@ class BenchmarkExecutorTest {
                 new FakeJfrExtractor(),
                 new ArtifactWriter(),
                 new ComparisonEngine(),
-                new ConsoleTable()
+                new ConsoleTable(),
+                new TimeseriesGenerator()
         );
     }
 
@@ -328,6 +400,24 @@ class BenchmarkExecutorTest {
             Files.writeString(benchDir.resolve("gc-2.log"), MINIMAL_GC_LOG);
 
             return exitCode;
+        }
+    }
+
+    private static class FakeJmhLauncherWithIterations extends FakeJmhLauncher {
+        FakeJmhLauncherWithIterations(int exitCode) {
+            super(exitCode);
+        }
+
+        @Override
+        public int launch(ResolvedSource source, net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig config,
+                          Path benchDir, boolean noJfr, Path projectRoot) throws IOException {
+            int code = super.launch(source, config, benchDir, noJfr, projectRoot);
+            Files.writeString(benchDir.resolve("jmh.stdout.log"), """
+                    # Warmup Iteration   1: 0.015000 ms/op
+                    Iteration   1: 0.015234 ms/op
+                    Iteration   2: 0.016100 ms/op
+                    """);
+            return code;
         }
     }
 
