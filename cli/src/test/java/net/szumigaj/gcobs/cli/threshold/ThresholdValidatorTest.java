@@ -379,7 +379,7 @@ class ThresholdValidatorTest {
         assertThat(result.passing().get(0).actual()).isEqualTo(0.0);
     }
 
-    // --- metaspaceUsedMaxMb (always unavailable in JfrSummary v1) ---
+    // --- metaspaceUsedMaxMb ---
 
     @Test
     void metaspaceAlwaysUnavailableInV1() {
@@ -394,6 +394,89 @@ class ThresholdValidatorTest {
 
         assertThat(result.status().name()).isEqualTo(FAIL.name());
         assertThat(result.breaches().get(0).field()).isEqualTo("metaspaceUsedMaxMb");
+        assertThat(result.breaches().get(0).message()).contains("unavailable");
+    }
+
+    @Test
+    void metaspacePassesWhenBelowThreshold() {
+        ThresholdsConfig t = ThresholdsConfig.builder()
+                .metaspaceUsedMaxMb(256)
+                .build();
+
+        JfrSummary jfr = JfrSummary.builder()
+                .memoryPools(MemoryPools.builder()
+                        .metaspace(MemoryPools.Metaspace.builder()
+                                .usedMaxMb(100.0)
+                                .build())
+                        .build())
+                .build();
+
+        ThresholdResult result = ThresholdValidator.evaluate(
+                t, null, jfr, null, null, "invariant", "fail");
+
+        assertThat(result.status().name()).isEqualTo(PASS.name());
+        assertThat(result.passing().get(0).field()).isEqualTo("metaspaceUsedMaxMb");
+        assertThat(result.passing().get(0).actual()).isEqualTo(100.0);
+    }
+
+    @Test
+    void metaspaceBreachedWhenAboveThreshold() {
+        ThresholdsConfig t = ThresholdsConfig.builder()
+                .metaspaceUsedMaxMb(256)
+                .build();
+
+        JfrSummary jfr = JfrSummary.builder()
+                .memoryPools(MemoryPools.builder()
+                        .metaspace(MemoryPools.Metaspace.builder()
+                                .usedMaxMb(300.0)
+                                .build())
+                        .build())
+                .build();
+
+        ThresholdResult result = ThresholdValidator.evaluate(
+                t, null, jfr, null, null, "invariant", "fail");
+
+        assertThat(result.status().name()).isEqualTo(FAIL.name());
+        assertThat(result.breaches().get(0).field()).isEqualTo("metaspaceUsedMaxMb");
+        assertThat(result.breaches().get(0).actual()).isEqualTo(300.0);
+        assertThat(result.breaches().get(0).threshold()).isEqualTo(256.0);
+    }
+
+    @Test
+    void metaspaceUnavailableWhenMetaspaceSubfieldIsNull() {
+        ThresholdsConfig t = ThresholdsConfig.builder()
+                .metaspaceUsedMaxMb(256)
+                .build();
+
+        JfrSummary jfr = JfrSummary.builder()
+                .memoryPools(MemoryPools.builder().build()) // metaspace is null
+                .build();
+
+        ThresholdResult result = ThresholdValidator.evaluate(
+                t, null, jfr, null, null, "invariant", "fail");
+
+        assertThat(result.status().name()).isEqualTo(FAIL.name());
+        assertThat(result.breaches().get(0).message()).contains("unavailable");
+    }
+
+    @Test
+    void metaspaceUnavailableWhenUsedMaxMbIsNull() {
+        ThresholdsConfig t = ThresholdsConfig.builder()
+                .metaspaceUsedMaxMb(256)
+                .build();
+
+        JfrSummary jfr = JfrSummary.builder()
+                .memoryPools(MemoryPools.builder()
+                        .metaspace(MemoryPools.Metaspace.builder()
+                                .usedMaxMb(null) // usedMaxMb explicitly null
+                                .build())
+                        .build())
+                .build();
+
+        ThresholdResult result = ThresholdValidator.evaluate(
+                t, null, jfr, null, null, "invariant", "fail");
+
+        assertThat(result.status().name()).isEqualTo(FAIL.name());
         assertThat(result.breaches().get(0).message()).contains("unavailable");
     }
 

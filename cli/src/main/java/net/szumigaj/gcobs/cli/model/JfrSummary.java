@@ -11,5 +11,10 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record JfrSummary(String benchmarkId, String runId, int forkCount, String aggregation, GcEventStats gcEvents,
                          int largeObjectAllocations, int allocationStalls, SafepointJfrStats safepoint,
-                         JvmErgonomics jvmErgonomics, List<String> warnings) {
+                         JvmErgonomics jvmErgonomics, List<String> warnings, Double gcCpuPct,
+                         AllocationProfile allocationProfile, MemoryPools memoryPools, Compilation compilation,
+                         Contention contention) {
 }
+
+
+

@@ -139,10 +139,10 @@ public final class ThresholdValidator {
                     isExplore, skipOnMissing, breaches, passing, skipped);
         }
 
-        // metaspaceUsedMaxMb: JfrSummary v1 does not have memoryPools; always unavailable
         if (thresholds.metaspaceUsedMaxMb() != null) {
-            // JfrSummary v1 has no memoryPools field; treat as unavailable
-            Double actual = null;
+            Double actual = (jfrSummary != null && jfrSummary.memoryPools() != null
+                    && jfrSummary.memoryPools().metaspace() != null)
+                    ? jfrSummary.memoryPools().metaspace().usedMaxMb() : null;
             checkThreshold("metaspaceUsedMaxMb", thresholds.metaspaceUsedMaxMb().doubleValue(), actual,
                     "Metaspace used %.0fMB exceeds threshold %.0fMB",
                     isExplore, skipOnMissing, breaches, passing, skipped);

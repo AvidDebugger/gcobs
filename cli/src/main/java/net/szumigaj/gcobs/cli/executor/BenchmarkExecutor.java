@@ -13,7 +13,7 @@ import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.telemetry.EnvironmentSnapshot;
 import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
 import net.szumigaj.gcobs.cli.telemetry.JfrExtractor;
-import net.szumigaj.gcobs.cli.telemetry.TimeseriesGenerator;
+import net.szumigaj.gcobs.cli.telemetry.TimeSeriesGenerator;
 import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
 import net.szumigaj.gcobs.cli.threshold.ThresholdValidator;
 
@@ -50,7 +50,7 @@ public class BenchmarkExecutor {
     private final ArtifactWriter artifactWriter;
     private final ComparisonEngine comparisonEngine;
     private final ConsoleTable consoleTable;
-    private final TimeseriesGenerator timeseriesGenerator;
+    private final TimeSeriesGenerator timeseriesGenerator;
 
     public int execute(BenchmarkRunSpec spec, ExecutionOptions options) {
         try {

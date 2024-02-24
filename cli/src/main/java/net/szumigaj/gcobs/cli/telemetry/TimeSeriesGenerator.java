@@ -12,7 +12,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Singleton
-public class TimeseriesGenerator {
+public class TimeSeriesGenerator {
 
     // JMH iteration output pattern:
     // "Iteration   1: 0.015 ms/op"  or  "# Warmup Iteration   1: 0.015 ms/op"
