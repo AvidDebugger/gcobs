@@ -12,5 +12,6 @@ public record EnvironmentInfo(String javaVersion, String javaVendor, String java
                               String javaVmVersion, String javaHome, String osName, String osVersion,
                               String kernelVersion, String cpuModel, String cpuGovernor, int availableProcessors,
                               int physicalMemoryMb, String cgroupCpuQuota, Integer cgroupMemoryLimitMb,
-                              Integer parallelGcThreads, Integer concGcThreads) {
+                              Integer parallelGcThreads, Integer concGcThreads, Integer jdkMajorVersion,
+                              String jvmDistribution, String javaHomePath) {
 }

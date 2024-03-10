@@ -1,5 +1,6 @@
 package net.szumigaj.gcobs.cli.telemetry;
 
+import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
 
 import java.io.BufferedReader;
@@ -10,20 +11,30 @@ import java.nio.file.Path;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-
+@Slf4j
 public class EnvironmentSnapshot {
 
     public EnvironmentInfo capture() {
+        String javaHome = System.getProperty("java.home");
+        String javaHomePath = System.getenv("JAVA_HOME");
+        String javaVersion = System.getProperty("java.version");
+        Integer javaMajorVersion = parseJdkMajorVersion(javaVersion);
+        String javaVendor = System.getProperty("java.vendor");
+        String javaVmName = System.getProperty("java.vm.name");
+
         EnvironmentInfo.EnvironmentInfoBuilder environmentInfoBuilder = EnvironmentInfo.builder()
-                .javaVersion(System.getProperty("java.version"))
-                .javaVendor(System.getProperty("java.vendor"))
+                .javaVersion(javaVersion)
+                .javaVendor(javaVendor)
                 .javaRuntimeBuild(System.getProperty("java.runtime.version"))
-                .javaVmName(System.getProperty("java.vm.name"))
+                .javaVmName(javaVmName)
                 .javaVmVersion(System.getProperty("java.vm.version"))
-                .javaHome(System.getProperty("java.home"))
+                .javaHome(javaHome)
                 .osName(System.getProperty("os.name"))
                 .osVersion(System.getProperty("os.version"))
-                .availableProcessors(Runtime.getRuntime().availableProcessors());
+                .availableProcessors(Runtime.getRuntime().availableProcessors())
+                .javaHomePath(javaHomePath == null ? javaHome : javaHomePath)
+                .jdkMajorVersion(javaMajorVersion)
+                .jvmDistribution(javaVendor);
 
         // Linux-specific: CPU model
         environmentInfoBuilder.cpuModel(readFirstMatch(
@@ -58,7 +69,30 @@ public class EnvironmentSnapshot {
             }
         }
 
+        // Warn if JDK < 11 (JFR unavailable)
+        if (javaMajorVersion != null && javaMajorVersion < 11) {
+            log.warn("WARNING: JDK {} detected. JFR is unavailable before JDK 11.", javaMajorVersion);
+        }
+
         return environmentInfoBuilder.build();
+    }
+
+    static Integer parseJdkMajorVersion(String javaVersion) {
+        if (javaVersion == null) {
+            return null;
+        }
+        try {
+            // JDK 9+: "17.0.1", "17", "11.0.2"
+            // JDK 8: "1.8.0_301"
+            if (javaVersion.startsWith("1.")) {
+                return Integer.parseInt(javaVersion.substring(2, 3));
+            }
+            int dotIndex = javaVersion.indexOf('.');
+            String major = dotIndex > 0 ? javaVersion.substring(0, dotIndex) : javaVersion;
+            return Integer.parseInt(major);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     private String readFirstMatch(Path file, Pattern pattern) {
