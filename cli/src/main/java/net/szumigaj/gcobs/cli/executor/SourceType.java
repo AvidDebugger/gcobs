@@ -6,6 +6,9 @@ import lombok.RequiredArgsConstructor;
 @Getter
 @RequiredArgsConstructor
 public enum SourceType {
-    INTERNAL("internal");
+    GRADLE("gradle"),
+    INTERNAL("internal"),
+    JAR("jar");
+
     private final String key;
 }
