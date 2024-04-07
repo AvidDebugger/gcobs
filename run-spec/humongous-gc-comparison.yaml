@@ -1,0 +1,93 @@
+metadata:
+  name: humongous-gc-comparison
+  description: |
+    Hypothesis: ZGC handles humongous allocations (objects > G1 region/2) more gracefully
+    than G1GC. G1 is expected to struggle with humongous objects at 512MB heap, potentially
+    triggering Full GC. ZGC treats large objects uniformly with no special humongous path.
+  labels:
+    hypothesis-id: H-HUMONGOUS-001
+    category: gc-comparison
+    workload: humongous
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms512m
+    - -Xmx512m
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+
+benchmarks:
+
+  - id: g1-humongous
+    description: "HumongousKernel under G1GC 512MB: 1MB allocations stress humongous path"
+    source:
+      type: internal
+      module: benchmark-humongous-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms512m
+        - -Xmx512m
+    jmh:
+      includes: ".*humongousKernelChecksum.*"
+    params:
+      iterations: 5
+      batchSize: 5
+      payloadBytes: 1048576
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 2
+      gcOverheadMaxPct: 25.0
+      gcSystemGcCountMax: 0
+
+  - id: zgc-humongous
+    description: "HumongousKernel under ZGC 512MB: large objects handled uniformly"
+    source:
+      type: internal
+      module: benchmark-humongous-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms512m
+        - -Xmx512m
+    jmh:
+      includes: ".*humongousKernelChecksum.*"
+    params:
+      iterations: 5
+      batchSize: 5
+      payloadBytes: 1048576
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 15.0
+      gcAllocationStallsMax: 0
+      gcSystemGcCountMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1-humongous
+      base: g1-humongous
+      candidate: zgc-humongous
+      description: "ZGC vs G1GC: humongous allocation hypothesis H-HUMONGOUS-001"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 50.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
