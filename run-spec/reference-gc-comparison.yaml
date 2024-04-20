@@ -1,0 +1,95 @@
+metadata:
+  name: reference-gc-comparison
+  description: |
+    Hypothesis: ZGC handles reference processing (Soft/Weak/Phantom references) with
+    lower pause impact than G1GC. G1's reference processing is serial before JDK 18,
+    causing longer pauses with high reference counts.
+  labels:
+    hypothesis-id: H-REFPROC-001
+    category: gc-comparison
+    workload: reference
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms512m
+    - -Xmx512m
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+
+benchmarks:
+
+  - id: g1-reference
+    description: "ReferenceKernel under G1GC 512MB: Soft/Weak/Phantom reference processing"
+    source:
+      type: internal
+      module: benchmark-reference-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms512m
+        - -Xmx512m
+    jmh:
+      includes: ".*referenceKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 50
+      payloadBytes: 1024
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 200
+      gcFullCountMax: 1
+      gcOverheadMaxPct: 20.0
+      gcSystemGcCountMax: 0
+
+  - id: zgc-reference
+    description: "ReferenceKernel under ZGC 512MB: concurrent reference processing"
+    source:
+      type: internal
+      module: benchmark-reference-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms512m
+        - -Xmx512m
+    jmh:
+      includes: ".*referenceKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 50
+      payloadBytes: 1024
+      sleepMs: 0
+    thresholds:
+      gcPauseP99MaxMs: 50
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 15.0
+      gcAllocationStallsMax: 0
+      gcSystemGcCountMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1-reference
+      base: g1-reference
+      candidate: zgc-reference
+      description: "ZGC vs G1GC: reference processing hypothesis H-REFPROC-001"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 50.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
