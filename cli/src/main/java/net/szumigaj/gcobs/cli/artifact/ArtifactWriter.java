@@ -6,9 +6,9 @@ import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
 import net.szumigaj.gcobs.cli.model.GcSummary;
+import net.szumigaj.gcobs.cli.model.JfrSummary;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
-import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -114,6 +114,7 @@ public final class ArtifactWriter {
                 .artifacts(buildArtifactsManifest(ctx.benchDir(), config.jfrEnabled()))
                 .warnings(collectWarnings(ctx))
                 .thresholdResult(ctx.thresholdResult())
+                .diagnostics(buildDiagnostics(ctx.jfrSummary()))
                 .build();
 
         JsonWriter.write(ctx.benchDir().resolve(BENCHMARK_SUMMARY_JSON), summaryModel);
@@ -200,6 +201,54 @@ public final class ArtifactWriter {
         }
 
         return warnings.isEmpty() ? null : warnings;
+    }
+
+    /**
+     * Builds the diagnostics block from JFR data.
+     */
+    private static DiagnosticsModel buildDiagnostics(JfrSummary jfr) {
+        if (jfr == null) return null;
+
+        boolean hasAllocation = jfr.allocationProfile() != null
+                && jfr.allocationProfile().topClassesByCount() != null
+                && !jfr.allocationProfile().topClassesByCount().isEmpty();
+        boolean hasCompilation = jfr.compilation() != null;
+        boolean hasContention = jfr.contention() != null;
+
+        if (!hasAllocation && !hasCompilation && !hasContention) return null;
+
+        DiagnosticsModel.DiagnosticsModelBuilder diagnosticsModelBuilder = DiagnosticsModel.builder();
+
+        if (hasAllocation) {
+            diagnosticsModelBuilder.allocationHotspots(jfr.allocationProfile().topClassesByCount());
+        }
+
+        if (hasCompilation) {
+            DiagnosticsModel.CompilationInterference.CompilationInterferenceBuilder compilationInterferenceBuilder = DiagnosticsModel.CompilationInterference.builder()
+                    .compilationsTotal(jfr.compilation().count())
+                    .osrCompilations(jfr.compilation().osrCount())
+                    .longestCompilationMs(jfr.compilation().maxMs());
+            if (jfr.compilation().osrCount() > 0) {
+                compilationInterferenceBuilder.note(String.format(
+                        "%d OSR compilations detected during measurement, may indicate insufficient warmup",
+                        jfr.compilation().osrCount()));
+            }
+            diagnosticsModelBuilder.compilationInterference(compilationInterferenceBuilder.build());
+        }
+
+        if (hasContention) {
+            DiagnosticsModel.ThreadContention.ThreadContentionBuilder threadContentionBuilder = DiagnosticsModel.ThreadContention.builder()
+                    .monitorEvents(jfr.contention().monitorEvents())
+                    .parkEvents(jfr.contention().parkEvents());
+            if (jfr.contention().monitorEvents() > 10) {
+                threadContentionBuilder.note(String.format(
+                        "%d monitor contention events detected, may indicate lock contention affecting results",
+                        jfr.contention().monitorEvents()));
+            }
+            diagnosticsModelBuilder.threadContention(threadContentionBuilder.build());
+        }
+
+        return diagnosticsModelBuilder.build();
     }
 
     public void writeRunManifest(RunContext ctx, RunSummaryContext summaryCtx) throws IOException {

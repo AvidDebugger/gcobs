@@ -15,7 +15,8 @@ public record BenchmarkSummaryModel(String benchmarkId, String runId, String sta
                                     String finishedAt,
                                     long durationMs, Source source, Jmh jmh, JmhProfilers jmhProfilers, Jvm jvm,
                                     Map<String, String> params, String gcSummaryRef, String jfrSummaryRef,
-                                    EnvironmentInfo environment, Artifacts artifacts, List<String> warnings, ThresholdResult thresholdResult) {
+                                    EnvironmentInfo environment, Artifacts artifacts, List<String> warnings,
+                                    ThresholdResult thresholdResult, DiagnosticsModel diagnostics) {
 
     @Builder
     @JsonInclude(JsonInclude.Include.NON_NULL)
