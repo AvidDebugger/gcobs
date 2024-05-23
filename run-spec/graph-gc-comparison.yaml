@@ -1,0 +1,94 @@
+metadata:
+  name: graph-gc-comparison
+  description: |
+    Hypothesis: ZGC concurrent marking handles deep object graphs without pause spikes.
+    GraphKernel creates interconnected objects with 2-4 references per node, stressing
+    the GC marking phase. G1GC marking time increases with graph depth/connectivity,
+    while ZGC's concurrent marking should maintain lower pause times.
+  labels:
+    hypothesis-id: H-GRAPH-001
+    category: gc-comparison
+    workload: graph
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms1g
+    - -Xmx1g
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+
+benchmarks:
+
+  - id: g1-graph
+    description: "GraphKernel under G1GC 1GB: complex reference graph stresses marking"
+    source:
+      type: internal
+      module: benchmark-graph-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms1g
+        - -Xmx1g
+    jmh:
+      includes: ".*graphKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 100
+      payloadBytes: 256
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 1
+      gcOverheadMaxPct: 20.0
+      gcSystemGcCountMax: 0
+
+  - id: zgc-graph
+    description: "GraphKernel under ZGC 1GB: concurrent marking handles complex graphs"
+    source:
+      type: internal
+      module: benchmark-graph-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms1g
+        - -Xmx1g
+    jmh:
+      includes: ".*graphKernelChecksum.*"
+    params:
+      iterations: 10
+      batchSize: 100
+      payloadBytes: 256
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 15.0
+      gcAllocationStallsMax: 0
+      gcSystemGcCountMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1-graph
+      base: g1-graph
+      candidate: zgc-graph
+      description: "ZGC vs G1GC: graph marking hypothesis H-GRAPH-001"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 50.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 15.0
