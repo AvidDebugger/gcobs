@@ -1,0 +1,95 @@
+metadata:
+  name: mixed-gc-comparison
+  description: |
+    Hypothesis: ZGC maintains lower P99 latency during burst-to-service transitions.
+    MixedKernel alternates between batch allocation bursts (every 5th iteration) and
+    simulated request handling. G1GC may show latency spikes when transitioning from
+    burst to service phases, while ZGC's concurrent nature should provide more consistent
+    latency across workload transitions.
+  labels:
+    hypothesis-id: H-MIXED-001
+    category: gc-comparison
+    workload: mixed
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jvm:
+  args:
+    - -Xms512m
+    - -Xmx512m
+
+jmh:
+  warmupIterations: 3
+  measurementIterations: 5
+  forks: 3
+  threads: 1
+
+observability:
+  jfr:
+    enabled: true
+    settings: profile
+
+benchmarks:
+
+  - id: g1-mixed
+    description: "MixedKernel under G1GC 512MB: batch bursts + request handling"
+    source:
+      type: internal
+      module: benchmark-mixed-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms512m
+        - -Xmx512m
+    jmh:
+      includes: ".*mixedKernelChecksum.*"
+    params:
+      iterations: 20
+      batchSize: 100
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 2
+      gcOverheadMaxPct: 20.0
+      gcSystemGcCountMax: 0
+
+  - id: zgc-mixed
+    description: "MixedKernel under ZGC 512MB: consistent latency across transitions"
+    source:
+      type: internal
+      module: benchmark-mixed-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms512m
+        - -Xmx512m
+    jmh:
+      includes: ".*mixedKernelChecksum.*"
+    params:
+      iterations: 20
+      batchSize: 100
+      payloadBytes: 320
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+      gcOverheadMaxPct: 15.0
+      gcAllocationStallsMax: 0
+      gcSystemGcCountMax: 0
+
+compare:
+  pairs:
+    - id: zgc-vs-g1-mixed
+      base: g1-mixed
+      candidate: zgc-mixed
+      description: "ZGC vs G1GC: mixed workload latency hypothesis H-MIXED-001"
+      metrics:
+        - name: gcPauseP99Ms
+          regressionThresholdPct: 20.0
+        - name: gcOverheadPct
+          regressionThresholdPct: 50.0
+        - name: gcCountFull
+          regressionThresholdAbsolute: 0
+        - name: jmhScore
+          regressionThresholdPct: 15.0

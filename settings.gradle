@@ -11,5 +11,6 @@ include(":benchmarks:benchmark-ephemeral-jmh")
 include(":benchmarks:benchmark-fake-http-service-jmh")
 include(":benchmarks:benchmark-graph-jmh")
 include(":benchmarks:benchmark-humongous-jmh")
+include(":benchmarks:benchmark-mixed-jmh")
 include(":benchmarks:benchmark-reference-jmh")
 

@@ -46,6 +46,12 @@ public class GraphKernel {
         this.activeNodes = new ArrayList<>(this.maxNodes);
     }
 
+    public static class GraphKernelBuilder {
+        private int batchSize = 80;
+        private int sleepMs = 0;
+        private int maxNodes = DEFAULT_MAX_NODES;
+    }
+
     public long run(Blackhole blackhole) {
         long checksum = 0;
 

@@ -34,6 +34,11 @@ public class HumongousKernel {
         this.sleepMs = sleepMs;
     }
 
+    public static class HumongousKernelBuilder {
+        private int batchSize = 80;
+        private int sleepMs = 0;
+    }
+
     public long run(Blackhole blackhole) {
         long checksum = 0;
         int humongousSize = Math.max(payloadBytes, MIN_HUMONGOUS_SIZE);
