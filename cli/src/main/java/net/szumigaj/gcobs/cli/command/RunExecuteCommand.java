@@ -7,7 +7,7 @@ import net.szumigaj.gcobs.cli.executor.BenchmarkExecutor;
 import net.szumigaj.gcobs.cli.executor.ExecutionOptions;
 import net.szumigaj.gcobs.cli.executor.JmhLauncher;
 import net.szumigaj.gcobs.cli.executor.SourceResolver;
-import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.config.BenchmarkRunSpec;
 import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.spec.SpecValidator;
 import net.szumigaj.gcobs.cli.spec.ValidationError;

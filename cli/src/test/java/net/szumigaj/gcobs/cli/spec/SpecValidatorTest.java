@@ -1,6 +1,8 @@
 package net.szumigaj.gcobs.cli.spec;
 
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.config.*;
+import net.szumigaj.gcobs.cli.model.config.MissingMetricPolicy;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -9,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class SpecValidatorTest {
 
-    private static final String SOURCE_TYPE_INTERNAL = "internal";
+    private static final SourceType SOURCE_TYPE_INTERNAL = SourceType.INTERNAL;
 
     private final SpecValidator validator = new SpecValidator();
 
@@ -243,19 +245,6 @@ class SpecValidatorTest {
     }
 
     @Test
-    void invalidOnMissingMetric() {
-        var spec = validSpec().toBuilder()
-                .run(RunConfig.builder()
-                        .validation(ValidationConfig.builder()
-                                .onMissingMetric("ignore")
-                                .build())
-                        .build())
-                .build();
-        var errors = validator.validate(spec);
-        assertThat(errors).anyMatch(e -> e.field().equals("run.validation.onMissingMetric"));
-    }
-
-    @Test
     void parseCoverageOutOfRange() {
         var spec = validSpec().toBuilder()
                 .run(RunConfig.builder()
@@ -358,7 +347,7 @@ class SpecValidatorTest {
         var spec = validSpec().toBuilder()
                 .run(RunConfig.builder()
                         .validation(ValidationConfig.builder()
-                                .onMissingMetric("skip")
+                                .onMissingMetric(MissingMetricPolicy.SKIP)
                                 .build())
                         .build())
                 .build();

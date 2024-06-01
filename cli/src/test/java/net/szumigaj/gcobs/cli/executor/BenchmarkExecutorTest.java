@@ -3,7 +3,8 @@ package net.szumigaj.gcobs.cli.executor;
 import com.fasterxml.jackson.databind.JsonNode;
 import net.szumigaj.gcobs.cli.artifact.ArtifactWriter;
 import net.szumigaj.gcobs.cli.compare.ComparisonEngine;
-import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.config.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
 import net.szumigaj.gcobs.cli.output.ConsoleTable;
 import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
@@ -371,7 +372,7 @@ class BenchmarkExecutorTest {
 
     private static class FakeSourceResolver extends SourceResolver {
         @Override
-        public ResolvedSource resolve(net.szumigaj.gcobs.cli.model.SourceConfig source, Path projectRoot) {
+        public ResolvedSource resolve(net.szumigaj.gcobs.cli.model.config.SourceConfig source, Path projectRoot) {
             return new ResolvedSource(SourceType.INTERNAL, ":benchmarks:fake:runJmh", projectRoot.resolve("benchmarks/fake"));
         }
     }
@@ -423,7 +424,7 @@ class BenchmarkExecutorTest {
 
     private static class FakeJfrExtractor extends JfrExtractor {
         @Override
-        public net.szumigaj.gcobs.cli.model.JfrSummary extract(Path benchDir, String benchmarkId, String runId) {
+        public net.szumigaj.gcobs.cli.model.result.JfrSummary extract(Path benchDir, String benchmarkId, String runId) {
             return null;
         }
     }

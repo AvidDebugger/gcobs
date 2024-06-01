@@ -1,7 +1,7 @@
 package net.szumigaj.gcobs.cli.compare;
 
-import net.szumigaj.gcobs.cli.model.ComparisonMetric;
-import net.szumigaj.gcobs.cli.model.ComparisonPair;
+import net.szumigaj.gcobs.cli.model.config.ComparisonMetric;
+import net.szumigaj.gcobs.cli.model.config.ComparisonPair;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

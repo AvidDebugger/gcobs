@@ -6,7 +6,9 @@ import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.artifact.*;
 import net.szumigaj.gcobs.cli.compare.CompareResult;
 import net.szumigaj.gcobs.cli.compare.ComparisonEngine;
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.config.*;
+import net.szumigaj.gcobs.cli.model.env.*;
+import net.szumigaj.gcobs.cli.model.result.*;
 import net.szumigaj.gcobs.cli.output.ConsoleTable;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.spec.SpecLoader;
@@ -347,7 +349,7 @@ public class BenchmarkExecutor {
         if (bench.source().projectDir() != null) {
             return bench.source().projectDir();
         }
-        return bench.source().type();
+        return bench.source().type() != null ? bench.source().type().getKey() : null;
     }
 
     private String resolveProfileMode(BenchmarkRunSpec spec, ExecutionOptions options) {
@@ -360,7 +362,7 @@ public class BenchmarkExecutor {
         if (options.strictMetrics()) return "fail";
         if (spec.run() != null && spec.run().validation() != null
                 && spec.run().validation().onMissingMetric() != null) {
-            return spec.run().validation().onMissingMetric();
+            return spec.run().validation().onMissingMetric().getKey();
         }
         return "fail";
     }

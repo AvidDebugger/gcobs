@@ -1,7 +1,7 @@
 package net.szumigaj.gcobs.cli.telemetry;
 
 import lombok.extern.slf4j.Slf4j;
-import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.model.env.EnvironmentInfo;
 
 import java.io.BufferedReader;
 import java.io.IOException;

@@ -2,7 +2,7 @@ package net.szumigaj.gcobs.cli.telemetry;
 
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.result.*;
 
 import java.io.IOException;
 import java.nio.file.Files;

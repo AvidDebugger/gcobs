@@ -5,10 +5,10 @@ import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.artifact.JmhScore;
 import net.szumigaj.gcobs.cli.compare.CompareResult;
 import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
-import net.szumigaj.gcobs.cli.model.GcSummary;
-import net.szumigaj.gcobs.cli.model.HeapStats;
-import net.szumigaj.gcobs.cli.model.PauseStats;
-import net.szumigaj.gcobs.cli.model.SafepointStats;
+import net.szumigaj.gcobs.cli.model.result.GcSummary;
+import net.szumigaj.gcobs.cli.model.result.HeapStats;
+import net.szumigaj.gcobs.cli.model.result.PauseStats;
+import net.szumigaj.gcobs.cli.model.result.SafepointStats;
 
 import java.nio.file.Path;
 import java.time.Duration;

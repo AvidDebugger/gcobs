@@ -1,7 +1,7 @@
 package net.szumigaj.gcobs.cli.spec;
 
 import jakarta.inject.Singleton;
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.config.*;
 
 import java.util.*;
 import java.util.regex.Pattern;
@@ -11,8 +11,6 @@ import java.util.stream.Collectors;
 public class SpecValidator {
     private static final Pattern ID_PATTERN = Pattern.compile("^[a-z0-9][a-z0-9-]*$");
     private static final Set<String> VALID_PROFILES = Set.of("invariant", "explore");
-    private static final Set<String> VALID_SOURCE_TYPES = Set.of("internal", "jar", "gradle");
-    private static final Set<String> VALID_ON_MISSING_METRIC = Set.of("fail", "skip");
 
     public List<ValidationError> validate(BenchmarkRunSpec spec) {
         List<ValidationError> errors = new ArrayList<>();
@@ -53,13 +51,6 @@ public class SpecValidator {
     }
 
     private void validateRunValidation(ValidationConfig validation, List<ValidationError> errors) {
-        if (validation.onMissingMetric() != null
-                && !VALID_ON_MISSING_METRIC.contains(validation.onMissingMetric())) {
-            errors.add(new ValidationError("run.validation.onMissingMetric",
-                    "run.validation.onMissingMetric() must be \"fail\" or \"skip\"",
-                    "found: \"" + validation.onMissingMetric() + "\""));
-        }
-
         if (validation.minParseCoveragePct() != null) {
             int pct = validation.minParseCoveragePct();
             if (pct < 0 || pct > 100) {
@@ -129,10 +120,6 @@ public class SpecValidator {
         if (bench.source() == null || bench.source().type() == null) {
             errors.add(new ValidationError(prefix + ".source.type",
                     "source.type is required", null));
-        } else if (!VALID_SOURCE_TYPES.contains(bench.source().type())) {
-            errors.add(new ValidationError(prefix + ".source.type",
-                    "source.type must be \"internal\", \"jar\", or \"gradle\"",
-                    "found: \"" + bench.source().type() + "\""));
         }
     }
 

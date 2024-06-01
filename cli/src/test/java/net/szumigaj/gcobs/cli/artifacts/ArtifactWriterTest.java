@@ -5,7 +5,10 @@ import net.szumigaj.gcobs.cli.artifact.ArtifactWriter;
 import net.szumigaj.gcobs.cli.artifact.BenchmarkContext;
 import net.szumigaj.gcobs.cli.artifact.RunContext;
 import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.config.*;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
+import net.szumigaj.gcobs.cli.model.env.*;
+import net.szumigaj.gcobs.cli.model.result.*;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
 import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
@@ -159,7 +162,7 @@ class ArtifactWriterTest {
 
     private BenchmarkContext createBenchmarkContextWithRigorWarnings(Path benchDir, String id, String status, List<String> rigorWarnings) {
         SourceConfig source = SourceConfig.builder()
-                .type("internal")
+                .type(SourceType.INTERNAL)
                 .module("benchmark-batch-jmh")
                 .build();
 
@@ -190,7 +193,7 @@ class ArtifactWriterTest {
 
     private BenchmarkContext createBenchmarkContext(Path benchDir, String id, String status, ThresholdResult thresholdResult) {
         SourceConfig source = SourceConfig.builder()
-                .type("internal")
+                .type(SourceType.INTERNAL)
                 .module("benchmark-batch-jmh")
                 .build();
 
@@ -346,7 +349,7 @@ class ArtifactWriterTest {
 
     private BenchmarkContext createBenchmarkContextWithJfr(Path benchDir, String id, JfrSummary jfr) {
         SourceConfig source = SourceConfig.builder()
-                .type("internal")
+                .type(SourceType.INTERNAL)
                 .module("benchmark-batch-jmh")
                 .build();
 

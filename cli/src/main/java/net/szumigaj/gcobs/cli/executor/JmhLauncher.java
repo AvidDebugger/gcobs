@@ -10,7 +10,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import static net.szumigaj.gcobs.cli.executor.SourceType.INTERNAL;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
 
 /**
  * Builds the JMH command and executes it via ProcessBuilder,
@@ -34,13 +34,12 @@ public class JmhLauncher {
         List<String> command = switch (source.type()) {
             case INTERNAL -> buildGradleCommand(source, config, benchDir, noJfr);
             case JAR, GRADLE -> buildJarCommand(source, config, benchDir, noJfr);
-            default -> throw new IllegalArgumentException("Unsupported source type: " + source.type());
         };
 
         // Record the full command for reproducibility
         Files.writeString(benchDir.resolve("jmh.cmdline.txt"), String.join(" ", command));
 
-        Path workDir = INTERNAL.equals(source.type()) ? projectRoot
+        Path workDir = source.type() == SourceType.INTERNAL ? projectRoot
                 : (source.moduleDir() != null ? source.moduleDir() : projectRoot);
 
         ProcessBuilder pb = new ProcessBuilder(command)

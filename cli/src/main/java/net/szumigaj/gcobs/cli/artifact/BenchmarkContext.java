@@ -1,9 +1,9 @@
 package net.szumigaj.gcobs.cli.artifact;
 
-import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
-import net.szumigaj.gcobs.cli.model.GcSummary;
-import net.szumigaj.gcobs.cli.model.JfrSummary;
-import net.szumigaj.gcobs.cli.model.SourceConfig;
+import net.szumigaj.gcobs.cli.model.env.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.model.result.GcSummary;
+import net.szumigaj.gcobs.cli.model.result.JfrSummary;
+import net.szumigaj.gcobs.cli.model.config.SourceConfig;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.threshold.ThresholdResult;
 

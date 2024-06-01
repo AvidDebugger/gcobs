@@ -5,7 +5,7 @@ import jakarta.inject.Inject;
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.artifact.RunManifestModel;
-import net.szumigaj.gcobs.cli.model.AggregationResult;
+import net.szumigaj.gcobs.cli.model.result.AggregationResult;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
 
 import java.io.IOException;

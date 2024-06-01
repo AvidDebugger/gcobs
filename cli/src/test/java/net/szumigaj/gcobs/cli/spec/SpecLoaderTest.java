@@ -1,6 +1,8 @@
 package net.szumigaj.gcobs.cli.spec;
 
-import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.config.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.config.MissingMetricPolicy;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -24,7 +26,7 @@ class SpecLoaderTest {
         assertThat(spec.metadata().name()).isEqualTo("test-minimal");
         assertThat(spec.benchmarks()).hasSize(1);
         assertThat(spec.benchmarks().get(0).id()).isEqualTo("ephemeral-g1");
-        assertThat(spec.benchmarks().get(0).source().type()).isEqualTo("internal");
+        assertThat(spec.benchmarks().get(0).source().type()).isEqualTo(SourceType.INTERNAL);
         assertThat(spec.benchmarks().get(0).source().module()).isEqualTo("benchmark-ephemeral-jmh");
     }
 
@@ -39,7 +41,7 @@ class SpecLoaderTest {
         // run config
         assertThat(spec.run().profile()).isEqualTo("invariant");
         assertThat(spec.run().runId()).isEqualTo("test-run-001");
-        assertThat(spec.run().validation().onMissingMetric()).isEqualTo("fail");
+        assertThat(spec.run().validation().onMissingMetric()).isEqualTo(MissingMetricPolicy.FAIL);
         assertThat(spec.run().validation().minParseCoveragePct()).isEqualTo(95);
 
         // top-level jvm

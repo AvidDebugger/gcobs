@@ -2,7 +2,7 @@ package net.szumigaj.gcobs.cli.artifact;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
-import net.szumigaj.gcobs.cli.model.AllocationClassEntry;
+import net.szumigaj.gcobs.cli.model.result.AllocationClassEntry;
 
 import java.util.List;
 

@@ -1,6 +1,7 @@
 package net.szumigaj.gcobs.cli.threshold;
 
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.config.*;
+import net.szumigaj.gcobs.cli.model.result.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;

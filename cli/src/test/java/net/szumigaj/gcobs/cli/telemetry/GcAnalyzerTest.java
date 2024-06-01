@@ -1,6 +1,6 @@
 package net.szumigaj.gcobs.cli.telemetry;
 
-import net.szumigaj.gcobs.cli.model.GcSummary;
+import net.szumigaj.gcobs.cli.model.result.GcSummary;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 

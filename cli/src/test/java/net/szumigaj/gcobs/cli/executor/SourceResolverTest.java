@@ -1,6 +1,7 @@
 package net.szumigaj.gcobs.cli.executor;
 
-import net.szumigaj.gcobs.cli.model.SourceConfig;
+import net.szumigaj.gcobs.cli.model.config.SourceConfig;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -12,8 +13,6 @@ import static org.assertj.core.api.Assertions.*;
 
 class SourceResolverTest {
 
-    private static final String SOURCE_TYPE_INTERNAL = "internal";
-
     private final Path projectRoot = Path.of(System.getProperty("user.dir")).getParent();
 
     private final SourceResolver resolver = new SourceResolver();
@@ -24,7 +23,7 @@ class SourceResolverTest {
     @Test
     void resolveInternalExistingModule() {
         SourceConfig source = SourceConfig.builder()
-                .type(SOURCE_TYPE_INTERNAL)
+                .type(SourceType.INTERNAL)
                 .module("benchmark-ephemeral-jmh")
                 .build();
 
@@ -39,7 +38,7 @@ class SourceResolverTest {
     @Test
     void resolveInternalNonexistentModule() {
         SourceConfig source = SourceConfig.builder()
-                .type(SOURCE_TYPE_INTERNAL)
+                .type(SourceType.INTERNAL)
                 .module("nonexistent-module")
                 .build();
 
@@ -51,7 +50,7 @@ class SourceResolverTest {
     @Test
     void resolveInternalNullModule() {
         SourceConfig source = SourceConfig.builder()
-                .type(SOURCE_TYPE_INTERNAL)
+                .type(SourceType.INTERNAL)
                 .module(null)
                 .build();
 
@@ -61,19 +60,7 @@ class SourceResolverTest {
     }
 
     @Test
-    void resolveInvalidTypeThrowsUnsupported() {
-        SourceConfig source = SourceConfig.builder()
-                .type("invalid")
-                .path("/tmp/test.jar")
-                .build();
-
-        assertThatThrownBy(() -> resolver.resolve(source, projectRoot))
-                .isInstanceOf(SourceResolverException.class)
-                .hasMessageContaining("Unknown source type: \"invalid\"");
-    }
-
-    @Test
-    void resolveNullTypeThrowsUnsupported() {
+    void resolveNullTypeThrowsRequired() {
         SourceConfig source = SourceConfig.builder()
                 .type(null)
                 .build();
@@ -84,20 +71,9 @@ class SourceResolverTest {
     }
 
     @Test
-    void resolveBlankTypeThrowsRequired() {
-        SourceConfig source = SourceConfig.builder()
-                .type("  ")
-                .build();
-
-        assertThatThrownBy(() -> resolver.resolve(source, projectRoot))
-                .isInstanceOf(SourceResolverException.class)
-                .hasMessageContaining("source.type is required");
-    }
-
-    @Test
     void resolveJarNullPathThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("jar")
+                .type(SourceType.JAR)
                 .path(null)
                 .build();
 
@@ -109,7 +85,7 @@ class SourceResolverTest {
     @Test
     void resolveJarBlankPathThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("jar")
+                .type(SourceType.JAR)
                 .path("   ")
                 .build();
 
@@ -121,7 +97,7 @@ class SourceResolverTest {
     @Test
     void resolveJarNonExistentFileThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("jar")
+                .type(SourceType.JAR)
                 .path(tempDir.resolve("does-not-exist.jar").toString())
                 .build();
 
@@ -136,7 +112,7 @@ class SourceResolverTest {
         Files.createFile(txtFile);
 
         SourceConfig source = SourceConfig.builder()
-                .type("jar")
+                .type(SourceType.JAR)
                 .path(txtFile.toString())
                 .build();
 
@@ -151,7 +127,7 @@ class SourceResolverTest {
         Files.createFile(jarFile);
 
         SourceConfig source = SourceConfig.builder()
-                .type("jar")
+                .type(SourceType.JAR)
                 .path(jarFile.toString())
                 .build();
 
@@ -169,9 +145,8 @@ class SourceResolverTest {
         Files.createDirectories(subDir);
         Files.createFile(subDir.resolve("bench.jar"));
 
-        // relative to tempDir (used as projectRoot here)
         SourceConfig source = SourceConfig.builder()
-                .type("jar")
+                .type(SourceType.JAR)
                 .path("libs/bench.jar")
                 .build();
 
@@ -184,7 +159,7 @@ class SourceResolverTest {
     @Test
     void resolveGradleNullProjectDirThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(null)
                 .build();
 
@@ -196,7 +171,7 @@ class SourceResolverTest {
     @Test
     void resolveGradleBlankProjectDirThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir("  ")
                 .build();
 
@@ -208,7 +183,7 @@ class SourceResolverTest {
     @Test
     void resolveGradleNonExistentDirThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(tempDir.resolve("no-such-dir").toString())
                 .build();
 
@@ -220,7 +195,7 @@ class SourceResolverTest {
     @Test
     void resolveGradleNoBuildFileThrows() {
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(tempDir.toString())
                 .build();
 
@@ -235,7 +210,7 @@ class SourceResolverTest {
         Files.createFile(tempDir.resolve("bench-all.jar"));
 
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(tempDir.toString())
                 .gradleExecutable("true")
                 .buildTask("shadowJar")
@@ -256,7 +231,7 @@ class SourceResolverTest {
         Files.createFile(tempDir.resolve("bench-all.jar"));
 
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(tempDir.toString())
                 .gradleExecutable("true")
                 .buildTask("shadowJar")
@@ -274,7 +249,7 @@ class SourceResolverTest {
         Files.createFile(tempDir.resolve("build.gradle"));
 
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(tempDir.toString())
                 .gradleExecutable("true")
                 .jarPattern("*-all.jar")
@@ -292,7 +267,7 @@ class SourceResolverTest {
         Files.createFile(tempDir.resolve("z-bench.jar"));
 
         SourceConfig source = SourceConfig.builder()
-                .type("gradle")
+                .type(SourceType.GRADLE)
                 .projectDir(tempDir.toString())
                 .gradleExecutable("true")
                 .jarPattern("*-bench.jar")

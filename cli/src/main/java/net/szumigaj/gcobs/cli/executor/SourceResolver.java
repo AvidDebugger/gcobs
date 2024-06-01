@@ -2,7 +2,8 @@ package net.szumigaj.gcobs.cli.executor;
 
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.szumigaj.gcobs.cli.model.SourceConfig;
+import net.szumigaj.gcobs.cli.model.config.SourceConfig;
+import net.szumigaj.gcobs.cli.model.config.SourceType;
 
 import java.io.IOException;
 import java.nio.file.FileSystems;
@@ -16,14 +17,13 @@ import java.util.List;
 public class SourceResolver {
 
     public ResolvedSource resolve(SourceConfig source, Path projectRoot) {
-        if (source.type() == null || source.type().isBlank()) {
+        if (source.type() == null) {
             throw new SourceResolverException("source.type is required");
         }
         return switch (source.type()) {
-            case "internal" -> resolveInternal(source, projectRoot);
-            case "jar" -> resolveJar(source, projectRoot);
-            case "gradle" -> resolveGradle(source, projectRoot);
-            default -> throw new SourceResolverException("Unknown source type: \"%s\"".formatted(source.type()));
+            case INTERNAL -> resolveInternal(source, projectRoot);
+            case JAR -> resolveJar(source, projectRoot);
+            case GRADLE -> resolveGradle(source, projectRoot);
         };
     }
 

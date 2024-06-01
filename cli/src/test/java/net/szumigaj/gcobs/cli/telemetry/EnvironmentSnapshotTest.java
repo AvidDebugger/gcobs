@@ -1,6 +1,6 @@
 package net.szumigaj.gcobs.cli.telemetry;
 
-import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.model.env.EnvironmentInfo;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

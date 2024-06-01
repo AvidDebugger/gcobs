@@ -1,8 +1,8 @@
 package net.szumigaj.gcobs.cli.artifact;
 
 import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
-import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
-import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.model.config.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.env.EnvironmentInfo;
 
 import java.nio.file.Path;
 import java.time.Instant;

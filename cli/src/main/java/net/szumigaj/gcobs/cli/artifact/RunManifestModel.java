@@ -3,7 +3,7 @@ package net.szumigaj.gcobs.cli.artifact;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Builder;
 import net.szumigaj.gcobs.cli.compare.CompareResult;
-import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.model.env.EnvironmentInfo;
 
 import java.util.List;
 

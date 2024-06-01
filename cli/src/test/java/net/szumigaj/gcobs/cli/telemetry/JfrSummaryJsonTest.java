@@ -2,7 +2,7 @@ package net.szumigaj.gcobs.cli.telemetry;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import net.szumigaj.gcobs.cli.model.*;
+import net.szumigaj.gcobs.cli.model.result.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

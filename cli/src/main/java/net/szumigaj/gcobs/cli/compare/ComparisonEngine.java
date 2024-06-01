@@ -3,10 +3,10 @@ package net.szumigaj.gcobs.cli.compare;
 import com.fasterxml.jackson.databind.JsonNode;
 import jakarta.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.szumigaj.gcobs.cli.model.CompareConfig;
-import net.szumigaj.gcobs.cli.model.ComparisonMetric;
-import net.szumigaj.gcobs.cli.model.ComparisonPair;
-import net.szumigaj.gcobs.cli.model.EnvironmentInfo;
+import net.szumigaj.gcobs.cli.model.config.CompareConfig;
+import net.szumigaj.gcobs.cli.model.config.ComparisonMetric;
+import net.szumigaj.gcobs.cli.model.config.ComparisonPair;
+import net.szumigaj.gcobs.cli.model.env.EnvironmentInfo;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
 
 import java.io.IOException;

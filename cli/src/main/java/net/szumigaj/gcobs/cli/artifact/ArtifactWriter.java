@@ -5,8 +5,8 @@ import jakarta.inject.Singleton;
 import lombok.Builder;
 import lombok.extern.slf4j.Slf4j;
 import net.szumigaj.gcobs.cli.executor.BenchmarkResult;
-import net.szumigaj.gcobs.cli.model.GcSummary;
-import net.szumigaj.gcobs.cli.model.JfrSummary;
+import net.szumigaj.gcobs.cli.model.result.GcSummary;
+import net.szumigaj.gcobs.cli.model.result.JfrSummary;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.telemetry.JsonWriter;
 
@@ -122,7 +122,7 @@ public final class ArtifactWriter {
 
     private BenchmarkSummaryModel.Source buildSource(BenchmarkContext ctx) {
         return BenchmarkSummaryModel.Source.builder()
-                .type(ctx.source().type())
+                .type(ctx.source().type() != null ? ctx.source().type().getKey() : null)
                 .module(ctx.source().module())
                 .path(ctx.source().path())
                 .projectDir(ctx.source().projectDir())

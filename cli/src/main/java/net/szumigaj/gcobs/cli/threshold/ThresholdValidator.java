@@ -1,9 +1,9 @@
 package net.szumigaj.gcobs.cli.threshold;
 
-import net.szumigaj.gcobs.cli.model.CauseEntry;
-import net.szumigaj.gcobs.cli.model.GcSummary;
-import net.szumigaj.gcobs.cli.model.JfrSummary;
-import net.szumigaj.gcobs.cli.model.ThresholdsConfig;
+import net.szumigaj.gcobs.cli.model.result.CauseEntry;
+import net.szumigaj.gcobs.cli.model.result.GcSummary;
+import net.szumigaj.gcobs.cli.model.result.JfrSummary;
+import net.szumigaj.gcobs.cli.model.config.ThresholdsConfig;
 
 import java.util.ArrayList;
 import java.util.List;

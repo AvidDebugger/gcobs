@@ -1,8 +1,8 @@
 package net.szumigaj.gcobs.cli.spec;
 
 import lombok.Builder;
-import net.szumigaj.gcobs.cli.model.SourceConfig;
-import net.szumigaj.gcobs.cli.model.ThresholdsConfig;
+import net.szumigaj.gcobs.cli.model.config.SourceConfig;
+import net.szumigaj.gcobs.cli.model.config.ThresholdsConfig;
 
 import java.util.List;
 import java.util.Map;

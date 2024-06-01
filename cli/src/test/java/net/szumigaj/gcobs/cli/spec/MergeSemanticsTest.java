@@ -1,6 +1,6 @@
 package net.szumigaj.gcobs.cli.spec;
 
-import net.szumigaj.gcobs.cli.model.BenchmarkRunSpec;
+import net.szumigaj.gcobs.cli.model.config.BenchmarkRunSpec;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
