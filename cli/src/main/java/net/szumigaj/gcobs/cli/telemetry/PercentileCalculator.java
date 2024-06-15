@@ -2,8 +2,12 @@ package net.szumigaj.gcobs.cli.telemetry;
 
 import java.util.List;
 
-class PercentileCalculator {
-    static double percentile(List<Double> sorted, double pct) {
+public final class PercentileCalculator {
+
+    private PercentileCalculator() {
+    }
+
+    public static double percentile(List<Double> sorted, double pct) {
         if (sorted.isEmpty()) {
             return 0.0;
         }

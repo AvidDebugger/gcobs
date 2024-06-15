@@ -1,0 +1,152 @@
+metadata:
+  name: all-baseline
+  description: |
+    Perform performance test on all GC algorithms under the same workload.
+  labels:
+    category: baseline
+    workload: ephemeral
+
+run:
+  profile: invariant
+  runsDir: runs/
+
+jmh:
+  warmupIterations: 0
+  measurementIterations: 1
+  forks: 1
+  threads: 1
+
+benchmarks:
+
+  - id: epsilon-ephemeral
+    description: "EphemeralKernel under EpsilonGC (theoretical minimum, zero GC overhead)"
+    source:
+      type: internal
+      module: benchmark-ephemeral-jmh
+    jvm:
+      args:
+        - -XX:+UnlockExperimentalVMOptions
+        - -XX:+UseEpsilonGC
+        - -Xms2g
+        - -Xmx2g
+    jmh:
+      includes: ".*ephemeralKernelChecksum.*"
+    params:
+      iterations: 1
+      batchSize: 5
+      payloadBytes: 5
+      sleepMs: 0
+
+  - id: g1-ephemeral
+    description: "EphemeralKernel under G1GC 384MB (same workload, GC overhead visible)"
+    source:
+      type: internal
+      module: benchmark-ephemeral-jmh
+    jvm:
+      args:
+        - -XX:+UseG1GC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*ephemeralKernelChecksum.*"
+    params:
+      iterations: 1
+      batchSize: 5
+      payloadBytes: 5
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: zgc-ephemeral
+    description: "EphemeralKernel under ZGC 384MB (same workload, GC overhead visible)"
+    source:
+      type: internal
+      module: benchmark-ephemeral-jmh
+    jvm:
+      args:
+        - -XX:+UseZGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*ephemeralKernelChecksum.*"
+    params:
+      iterations: 1
+      batchSize: 5
+      payloadBytes: 5
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: parallel-ephemeral
+    description: "EphemeralKernel under ParallelGC 384MB (same workload, GC overhead visible)"
+    source:
+      type: internal
+      module: benchmark-ephemeral-jmh
+    jvm:
+      args:
+        - -XX:+UseParallelGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*ephemeralKernelChecksum.*"
+    params:
+      iterations: 1
+      batchSize: 5
+      payloadBytes: 5
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: serial-ephemeral
+    description: "EphemeralKernel under SerialGC 384MB (same workload, GC overhead visible)"
+    source:
+      type: internal
+      module: benchmark-ephemeral-jmh
+    jvm:
+      args:
+        - -XX:+UseSerialGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*ephemeralKernelChecksum.*"
+    params:
+      iterations: 1
+      batchSize: 5
+      payloadBytes: 5
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+  - id: shenandoah-ephemeral
+    description: "EphemeralKernel under ShenandoahGC 384MB (same workload, GC overhead visible)"
+    source:
+      type: internal
+      module: benchmark-ephemeral-jmh
+    jvm:
+      args:
+        - -XX:+UseShenandoahGC
+        - -Xms384m
+        - -Xmx384m
+    jmh:
+      includes: ".*ephemeralKernelChecksum.*"
+    params:
+      iterations: 1
+      batchSize: 5
+      payloadBytes: 5
+      sleepMs: 0
+    thresholds:
+      gcFullCountMax: 0
+
+compare:
+  pairs:
+    - id: epsilon-vs-g1
+      base: epsilon-ephemeral
+      candidate: g1-ephemeral
+      description: |
+        Compare G1GC overhead vs theoretical minimum.
+        REGRESSION if G1 score > epsilon score * 1.5 (GC overhead > 33% of total time)
+      metrics:
+        - name: jmhScore
+          regressionThresholdPct: 50.0
+        - name: gcOverheadPct
+          regressionThresholdAbsolute: 20

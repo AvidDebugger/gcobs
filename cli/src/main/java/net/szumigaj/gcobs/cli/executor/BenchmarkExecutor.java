@@ -13,7 +13,7 @@ import net.szumigaj.gcobs.cli.output.ConsoleTable;
 import net.szumigaj.gcobs.cli.spec.EffectiveBenchmarkConfig;
 import net.szumigaj.gcobs.cli.spec.SpecLoader;
 import net.szumigaj.gcobs.cli.telemetry.EnvironmentSnapshot;
-import net.szumigaj.gcobs.cli.telemetry.GcAnalyzer;
+import net.szumigaj.gcobs.cli.telemetry.gc.GcAnalyzer;
 import net.szumigaj.gcobs.cli.telemetry.JfrExtractor;
 import net.szumigaj.gcobs.cli.telemetry.TimeSeriesGenerator;
 import net.szumigaj.gcobs.cli.threshold.ThresholdResult;

@@ -1,6 +1,11 @@
-package net.szumigaj.gcobs.cli.telemetry;
+package net.szumigaj.gcobs.cli.telemetry.gc;
 
 import net.szumigaj.gcobs.cli.model.result.GcSummary;
+import net.szumigaj.gcobs.cli.telemetry.PercentileCalculator;
+import net.szumigaj.gcobs.cli.telemetry.gc.parser.G1GcLogParser;
+import net.szumigaj.gcobs.cli.telemetry.gc.parser.GcLogParserDispatcher;
+import net.szumigaj.gcobs.cli.telemetry.gc.parser.LegacyFallbackGcLogParser;
+import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -16,7 +21,7 @@ class GcAnalyzerTest {
     @TempDir
     private Path tempDir;
 
-    private final GcAnalyzer analyzer = new GcAnalyzer();
+    private final GcAnalyzer analyzer = new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new LegacyFallbackGcLogParser()));
 
     private GcSummary analyzeLog(String logContent) throws IOException {
         Files.writeString(tempDir.resolve("gc.log"), logContent);
@@ -28,7 +33,18 @@ class GcAnalyzerTest {
         return analyzeLog(content);
     }
 
-    // --- G1 Tests ---
+    // --- G1 Tests (G1GcLogParser strategy) ---
+
+    @Test
+    void g1StrategyPathProducesCorrectPauseAndCauseMetrics() throws IOException {
+        // G1 logs are parsed by G1GcLogParser, verify it produces same output as before refactor
+        GcSummary s = analyzeFixture("g1-sample.log");
+
+        assertThat(s.gcAlgorithm()).isEqualTo("G1");
+        assertThat(s.pause().countTotal()).isEqualTo(7);
+        assertThat(s.causeBreakdown()).containsKey("G1 Evacuation Pause");
+        assertThat(s.causeBreakdown()).containsKey("G1 Humongous Allocation");
+    }
 
     @Test
     void analyzesG1LogWithAllPauseTypes() throws IOException {
@@ -133,7 +149,19 @@ class GcAnalyzerTest {
         assertThat(s.collections().get(2).n()).isEqualTo(3);
     }
 
-    // --- ZGC Tests ---
+    // --- ZGC Tests (LegacyFallbackGcLogParser strategy) ---
+
+    @Test
+    void fallbackStrategyHandlesNonG1Logs() throws IOException {
+        // Non-G1 logs use LegacyFallbackGcLogParser, verify ZGC and Parallel still parse correctly
+        GcSummary zgc = analyzeFixture("zgc-sample.log");
+        assertThat(zgc.gcAlgorithm()).isEqualTo("ZGC");
+        assertThat(zgc.pause().countTotal()).isEqualTo(9);
+
+        GcSummary parallel = analyzeFixture("parallel-sample.log");
+        assertThat(parallel.gcAlgorithm()).isEqualTo("Parallel");
+        assertThat(parallel.pause().countTotal()).isEqualTo(4);
+    }
 
     @Test
     void analyzesZgcLog() throws IOException {
@@ -229,7 +257,7 @@ class GcAnalyzerTest {
     void computesPercentilesCorrectly() {
         var sorted = java.util.List.of(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0);
 
-        assertThat(PercentileCalculator.percentile(sorted, 0.50)).isEqualTo(5.5);
+        Assertions.assertThat(PercentileCalculator.percentile(sorted, 0.50)).isEqualTo(5.5);
         assertThat(PercentileCalculator.percentile(sorted, 0.95)).isCloseTo(9.55, within(0.01));
         assertThat(PercentileCalculator.percentile(sorted, 0.99)).isCloseTo(9.91, within(0.01));
     }
