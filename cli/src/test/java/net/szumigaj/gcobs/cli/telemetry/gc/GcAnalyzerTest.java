@@ -5,6 +5,7 @@ import net.szumigaj.gcobs.cli.telemetry.PercentileCalculator;
 import net.szumigaj.gcobs.cli.telemetry.gc.parser.G1GcLogParser;
 import net.szumigaj.gcobs.cli.telemetry.gc.parser.GcLogParserDispatcher;
 import net.szumigaj.gcobs.cli.telemetry.gc.parser.LegacyFallbackGcLogParser;
+import net.szumigaj.gcobs.cli.telemetry.gc.parser.ZgcGcLogParser;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -21,7 +22,7 @@ class GcAnalyzerTest {
     @TempDir
     private Path tempDir;
 
-    private final GcAnalyzer analyzer = new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new LegacyFallbackGcLogParser()));
+    private final GcAnalyzer analyzer = new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new ZgcGcLogParser(), new LegacyFallbackGcLogParser()));
 
     private GcSummary analyzeLog(String logContent) throws IOException {
         Files.writeString(tempDir.resolve("gc.log"), logContent);
@@ -149,11 +150,11 @@ class GcAnalyzerTest {
         assertThat(s.collections().get(2).n()).isEqualTo(3);
     }
 
-    // --- ZGC Tests (LegacyFallbackGcLogParser strategy) ---
+    // --- ZGC Tests (ZgcGcLogParser strategy) ---
 
     @Test
-    void fallbackStrategyHandlesNonG1Logs() throws IOException {
-        // Non-G1 logs use LegacyFallbackGcLogParser, verify ZGC and Parallel still parse correctly
+    void dedicatedParsersHandleNonFallbackLogs() throws IOException {
+        // ZGC uses ZgcGcLogParser, Parallel uses LegacyFallbackGcLogParser
         GcSummary zgc = analyzeFixture("zgc-sample.log");
         assertThat(zgc.gcAlgorithm()).isEqualTo("ZGC");
         assertThat(zgc.pause().countTotal()).isEqualTo(9);
@@ -173,6 +174,18 @@ class GcAnalyzerTest {
         assertThat(s.pause().maxMs()).isLessThan(1.0); // sub-millisecond
         assertThat(s.collections()).hasSize(9);
         assertThat(s.collections().get(0).type()).isEqualTo("STW-Minor");
+    }
+
+    @Test
+    void zgcCauseBreakdownReflectsPhases() throws IOException {
+        GcSummary s = analyzeFixture("zgc-sample.log");
+
+        assertThat(s.causeBreakdown()).containsKey("Mark Start");
+        assertThat(s.causeBreakdown()).containsKey("Mark End");
+        assertThat(s.causeBreakdown()).containsKey("Relocate Start");
+        assertThat(s.causeBreakdown().get("Mark Start").count()).isEqualTo(3);
+        assertThat(s.causeBreakdown().get("Mark End").count()).isEqualTo(3);
+        assertThat(s.causeBreakdown().get("Relocate Start").count()).isEqualTo(3);
     }
 
     // --- Parallel Tests ---

@@ -14,6 +14,7 @@ import net.szumigaj.gcobs.cli.telemetry.TimeSeriesGenerator;
 import net.szumigaj.gcobs.cli.telemetry.gc.parser.G1GcLogParser;
 import net.szumigaj.gcobs.cli.telemetry.gc.parser.GcLogParserDispatcher;
 import net.szumigaj.gcobs.cli.telemetry.gc.parser.LegacyFallbackGcLogParser;
+import net.szumigaj.gcobs.cli.telemetry.gc.parser.ZgcGcLogParser;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -364,7 +365,7 @@ class BenchmarkExecutorTest {
         return new BenchmarkExecutor(
                 new FakeSourceResolver(),
                 fakeLauncher,
-                new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new LegacyFallbackGcLogParser())),
+                new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new ZgcGcLogParser(), new LegacyFallbackGcLogParser())),
                 new FakeJfrExtractor(),
                 new ArtifactWriter(),
                 new ComparisonEngine(),

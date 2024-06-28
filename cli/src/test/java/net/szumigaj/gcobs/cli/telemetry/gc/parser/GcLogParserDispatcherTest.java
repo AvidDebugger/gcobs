@@ -10,7 +10,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class GcLogParserDispatcherTest {
 
-    private final GcLogParserDispatcher dispatcher = new GcLogParserDispatcher(new G1GcLogParser(), new LegacyFallbackGcLogParser());
+    private final GcLogParserDispatcher dispatcher = new GcLogParserDispatcher(new G1GcLogParser(), new ZgcGcLogParser(), new LegacyFallbackGcLogParser());
 
     @Test
     void parsesG1LogViaBufferedInputStream() throws IOException {
@@ -30,9 +30,9 @@ class GcLogParserDispatcherTest {
     }
 
     @Test
-    void parsesZgcLogViaFallback() throws IOException {
+    void parsesZgcLogViaZgcParser() throws IOException {
         String log = """
-                [0ms] Using ZGC
+                [0ms] Initializing The Z Garbage Collector
                 [100ms] Pause Mark Start 0.234ms
                 [200ms] Pause Mark End 0.456ms
                 """;
@@ -42,6 +42,9 @@ class GcLogParserDispatcherTest {
             assertThat(result.gcAlgorithm()).isEqualTo("ZGC");
             assertThat(result.events()).hasSize(2);
             assertThat(result.pauseDurations()).hasSize(2);
+            assertThat(result.events().get(0).type()).isEqualTo("STW-Minor");
+            assertThat(result.events().get(0).cause()).isEqualTo("Mark Start");
+            assertThat(result.events().get(1).cause()).isEqualTo("Mark End");
         }
     }
 

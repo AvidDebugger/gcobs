@@ -10,7 +10,7 @@ import java.util.regex.Pattern;
 
 /**
  * Dispatches to algorithm-specific parsers based on GC algorithm detection.
- * Uses G1GcLogParser when G1 is detected, otherwise LegacyFallbackGcLogParser.
+ * Uses G1GcLogParser for G1, ZgcGcLogParser for ZGC, otherwise LegacyFallbackGcLogParser.
  * Detection reads only a bounded prefix, the selected parser receives the stream
  * from the start (via mark/reset) so no lines are lost.
  */
@@ -22,9 +22,10 @@ public class GcLogParserDispatcher {
     private static final int DETECTION_MAX_LINES = 100;
 
     private static final Pattern GC_ALGORITHM = Pattern.compile(
-            "Using (G1|ZGC|Parallel|Serial|Shenandoah|Epsilon)");
+            "((Using G1|ZGC|Parallel|Serial|Shenandoah|Epsilon)|(Initializing The Z Garbage Collector))");
 
     private final G1GcLogParser g1Parser;
+    private final ZgcGcLogParser zgcParser;
     private final LegacyFallbackGcLogParser fallbackParser;
 
     /**
@@ -41,10 +42,11 @@ public class GcLogParserDispatcher {
         String algorithm = detectAlgorithm(input);
         input.reset();
 
-        if ("G1".equals(algorithm)) {
-            return g1Parser.parse(input);
-        }
-        return fallbackParser.parse(input);
+        return switch (algorithm) {
+            case "Using G1" -> g1Parser.parse(input);
+            case "Initializing The Z Garbage Collector" -> zgcParser.parse(input);
+            default -> fallbackParser.parse(input);
+        };
     }
 
     private String detectAlgorithm(BufferedReader input) throws IOException {
@@ -57,6 +59,6 @@ public class GcLogParserDispatcher {
                 return matcher.group(1);
             }
         }
-        return null;
+        return "UNKNOWN";
     }
 }

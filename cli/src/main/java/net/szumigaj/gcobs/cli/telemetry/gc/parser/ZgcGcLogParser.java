@@ -9,23 +9,20 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Fallback parser for non-specialized GC algorithms (Parallel, Serial, Shenandoah, Epsilon)
- * and unknown log formats. G1 and ZGC use dedicated parsers.
+ * ZGC-specific GC log parser. Extracts ZGC pause events (Mark Start, Mark End, Relocate Start),
+ * safepoints, and promotion failures. Mirrors G1GcLogParser structure for consistent metric collection.
  */
 @Singleton
-public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
+public class ZgcGcLogParser implements GcLogParserStrategy {
 
-    // GC Pause events: handles both G1 format (two paren groups) and Parallel/Serial (one paren group)
-    private static final Pattern GC_PAUSE = Pattern.compile(
-            "Pause (Young|Mixed|Full).*?\\(([^)]+)\\)(?:.*?\\(([^)]+)\\))?.*?(\\d+)M->(\\d+)M\\((\\d+)M\\).*?([0-9.,]+)ms");
+    // ZGC format: [uptime] GC(cycle) Pause Mark Start 0.015ms, Pause Mark End 0.008ms, Pause Relocate Start 0.012ms
+    private static final Pattern ZGC_PAUSE = Pattern.compile(
+            "Pause (Mark Start|Mark End|Relocate Start).*?([0-9.,]+)ms");
 
     private static final Pattern SAFEPOINT_TTSP = Pattern.compile(
             "Reaching safepoint: (\\d+) ns");
 
     private static final Pattern PROMOTION_FAILURE = Pattern.compile("Promotion failed");
-
-    private static final Pattern GC_ALGORITHM = Pattern.compile(
-            "Using (G1|ZGC|Parallel|Serial|Shenandoah|Epsilon)");
 
     private static final Pattern UPTIME = Pattern.compile("\\[(\\d+)ms\\]");
 
@@ -33,7 +30,7 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
 
     @Override
     public ParserResult parse(BufferedReader input) throws IOException {
-        ParserCollector parserCollector = new ParserCollector();
+        ParserCollector parserCollector = new ParserCollector("ZGC");
         int eventSeq = 0;
         long currentForkMaxUptime = 0;
         long totalDurationMs = 0;
@@ -54,13 +51,12 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
             long uptime = extractUptime(line);
             currentForkMaxUptime = Math.max(currentForkMaxUptime, uptime);
 
-            boolean matched = tryParseGcAlgorithm(line, parserCollector)
-                    || tryParseSafepointTtsp(line, parserCollector)
+            boolean matched = tryParseSafepointTtsp(line, parserCollector)
                     || tryParsePromotionFailure(line, parserCollector);
 
             if (!matched) {
                 int nextSeq = eventSeq + 1;
-                matched = tryParseGcPause(line, parserCollector, nextSeq, uptime);
+                matched = tryParseZgcPause(line, parserCollector, nextSeq, uptime);
                 if (matched) {
                     eventSeq = nextSeq;
                 }
@@ -84,38 +80,18 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
         return matcher.find() ? Long.parseLong(matcher.group(1)) : 0;
     }
 
-    private boolean tryParseGcAlgorithm(String line, ParserCollector parserCollector) {
-        Matcher matcher = GC_ALGORITHM.matcher(line);
-        if (matcher.find()) {
-            parserCollector.setGcAlgorithm(matcher.group(1));
-            return true;
-        }
-        return false;
-    }
-
-    private boolean tryParseGcPause(String line, ParserCollector parserCollector, int eventSeq, long uptime) {
-        Matcher matcher = GC_PAUSE.matcher(line);
+    private boolean tryParseZgcPause(String line, ParserCollector parserCollector, int eventSeq, long uptime) {
+        Matcher matcher = ZGC_PAUSE.matcher(line);
         if (!matcher.find()) {
             return false;
         }
 
-        String type = matcher.group(1);
-        String cause = matcher.group(3) != null ? matcher.group(3) : matcher.group(2);
-        int beforeMb = Integer.parseInt(matcher.group(4));
-        int afterMb = Integer.parseInt(matcher.group(5));
-        int capacityMb = Integer.parseInt(matcher.group(6));
-        double durationMs = Double.parseDouble(matcher.group(7).replace(",", "."));
+        String phase = matcher.group(1);
+        double durationMs = Double.parseDouble(matcher.group(2).replace(",", "."));
 
-        parserCollector.addEvents(new CollectionEvent(eventSeq, type, cause, beforeMb, afterMb, capacityMb, durationMs, uptime));
+        parserCollector.addEvents(new CollectionEvent(eventSeq, "STW-Minor", phase, 0, 0, 0, durationMs, uptime));
         parserCollector.addPauseDurations(durationMs);
-        parserCollector.incrementReclaimedTotalMb(Math.max(0, beforeMb - afterMb));
-        parserCollector.registerPeakUsedMb(beforeMb);
-
-        switch (type) {
-            case "Young" -> parserCollector.incrementMinorCount();
-            case "Mixed" -> parserCollector.incrementMixedCount();
-            case "Full" -> parserCollector.incrementFullCount();
-        }
+        parserCollector.incrementMinorCount();
         return true;
     }
 

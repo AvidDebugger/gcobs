@@ -1,4 +1,4 @@
-[0ms] Using ZGC
+[0ms] Initializing The Z Garbage Collector
 [100ms] GC(0) Pause Mark Start 0.015ms
 [200ms] GC(0) Pause Mark End 0.008ms
 [300ms] GC(0) Pause Relocate Start 0.012ms
