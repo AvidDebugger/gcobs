@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+GCOBS_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+CLI_JAR=$(ls "$GCOBS_HOME"/cli/build/libs/gcobs-cli.jar 2>/dev/null | head -1)
+if [[ -n "$CLI_JAR" ]]; then
+    exec java -jar "$CLI_JAR" "$@"
+fi
+echo "[gcobs] ERROR: CLI JAR not found. Build with: ./gradlew :cli:shadowJar" >&2
+exit 1

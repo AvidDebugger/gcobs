@@ -44,3 +44,8 @@ dependencies {
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
     testImplementation("org.assertj:assertj-core")
 }
+
+tasks.shadowJar {
+    archiveBaseName.set("gcobs")
+    archiveClassifier.set("cli")
+}
