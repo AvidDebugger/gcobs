@@ -1,0 +1,13 @@
+[0ms] Using Shenandoah
+[100ms] GC(0) Pause Init Mark 0.542ms
+[300ms] GC(0) Pause Final Mark 1.234ms
+[400ms] GC(0) Pause Final Update Refs 0.312ms
+[600ms] GC(1) Pause Init Mark 0.389ms
+[800ms] GC(1) Pause Final Mark 0.987ms
+[900ms] GC(1) Pause Final Update Refs 0.215ms
+[1100ms] GC(2) Pause Init Mark 0.456ms
+[1300ms] GC(2) Pause Final Mark 1.102ms
+[1400ms] GC(2) Pause Final Update Refs 0.289ms
+[1600ms] GC(3) Pause Init Mark 0.623ms
+[1800ms] GC(3) Pause Degenerated GC 15.432ms
+[2000ms] GC(4) Pause Init Mark 0.501ms

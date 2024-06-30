@@ -22,6 +22,10 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
     private static final Pattern SAFEPOINT_TTSP = Pattern.compile(
             "Reaching safepoint: (\\d+) ns");
 
+    // Shenandoah STW pauses: Pause Init Mark|Final Mark|... N.Nms
+    private static final Pattern SHENANDOAH_PAUSE = Pattern.compile(
+            "Pause (Init Mark|Final Mark|Init Update Refs|Final Update Refs|Degenerated GC).*?([0-9.]+)ms");
+
     private static final Pattern PROMOTION_FAILURE = Pattern.compile("Promotion failed");
 
     private static final Pattern GC_ALGORITHM = Pattern.compile(
@@ -60,7 +64,8 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
 
             if (!matched) {
                 int nextSeq = eventSeq + 1;
-                matched = tryParseGcPause(line, parserCollector, nextSeq, uptime);
+                matched = tryParseGcPause(line, parserCollector, nextSeq, uptime)
+                        || tryParseShenandoahPause(line, parserCollector, nextSeq, uptime);
                 if (matched) {
                     eventSeq = nextSeq;
                 }
@@ -116,6 +121,29 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
             case "Mixed" -> parserCollector.incrementMixedCount();
             case "Full" -> parserCollector.incrementFullCount();
         }
+        return true;
+    }
+
+    private boolean tryParseShenandoahPause(String line, ParserCollector parserCollector, int eventSeq, long uptime) {
+        // Shenandoah STW pauses
+        Matcher shenandoahMatcher = SHENANDOAH_PAUSE.matcher(line);
+        if (!shenandoahMatcher.find()) {
+            return false;
+        }
+        double durationMs = Double.parseDouble(shenandoahMatcher.group(2));
+        String phase = shenandoahMatcher.group(1);
+        boolean isFull = "Degenerated GC".equals(phase);
+
+        eventSeq++;
+        String type = isFull ? "Full" : "STW-Minor";
+        parserCollector.addEvents(new CollectionEvent(
+                eventSeq, type, phase, 0, 0, 0,
+                durationMs, uptime));
+        parserCollector.addPauseDurations(durationMs);
+
+        if (isFull) parserCollector.incrementFullCount();
+        else parserCollector.incrementMinorCount();
+
         return true;
     }
 

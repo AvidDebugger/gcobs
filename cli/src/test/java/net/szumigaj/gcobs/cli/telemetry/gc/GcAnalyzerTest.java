@@ -188,6 +188,22 @@ class GcAnalyzerTest {
         assertThat(s.causeBreakdown().get("Relocate Start").count()).isEqualTo(3);
     }
 
+    // --- Shenandoah Tests ---
+
+    @Test
+    void analyzesShenandoahLog() throws IOException {
+        GcSummary s = analyzeFixture("shenandoah-sample.log");
+
+        assertThat(s.gcAlgorithm()).isEqualTo("Shenandoah");
+        assertThat(s.pause().countTotal()).isEqualTo(12);
+        assertThat(s.pause().countMinor()).isEqualTo(11);
+        assertThat(s.pause().countFull()).isEqualTo(1);
+        assertThat(s.pause().maxMs()).isEqualTo(15.432); // Degenerated GC
+        assertThat(s.collections()).hasSize(12);
+        assertThat(s.collections().get(0).type()).isEqualTo("STW-Minor");
+        assertThat(s.collections().get(0).cause()).isEqualTo("Init Mark");
+    }
+
     // --- Parallel Tests ---
 
     @Test
