@@ -5,12 +5,16 @@ import org.junit.jupiter.api.Test;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.StringReader;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class GcLogParserDispatcherTest {
 
-    private final GcLogParserDispatcher dispatcher = new GcLogParserDispatcher(new G1GcLogParser(), new ZgcGcLogParser(), new LegacyFallbackGcLogParser());
+    private final GcLogParserDispatcher dispatcher = new GcLogParserDispatcher(
+            List.of(new G1GcLogParser(), new ZgcGcLogParser()),
+            new LegacyFallbackGcLogParser()
+    );
 
     @Test
     void parsesG1LogViaBufferedInputStream() throws IOException {

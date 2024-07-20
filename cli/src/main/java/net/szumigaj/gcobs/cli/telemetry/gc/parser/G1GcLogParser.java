@@ -29,6 +29,11 @@ public class G1GcLogParser implements GcLogParserStrategy {
     private static final Pattern FORK_MARKER = Pattern.compile("^# === Fork:");
 
     @Override
+    public boolean supports(GcAlgorithm algorithm) {
+        return algorithm == GcAlgorithm.G1;
+    }
+
+    @Override
     public ParserResult parse(BufferedReader input) throws IOException {
         ParserCollector parserCollector = new ParserCollector("G1");
         int eventSeq = 0;

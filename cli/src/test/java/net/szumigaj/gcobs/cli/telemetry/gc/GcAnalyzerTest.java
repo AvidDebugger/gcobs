@@ -1,11 +1,9 @@
 package net.szumigaj.gcobs.cli.telemetry.gc;
 
+import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
+import jakarta.inject.Inject;
 import net.szumigaj.gcobs.cli.model.result.GcSummary;
 import net.szumigaj.gcobs.cli.telemetry.PercentileCalculator;
-import net.szumigaj.gcobs.cli.telemetry.gc.parser.G1GcLogParser;
-import net.szumigaj.gcobs.cli.telemetry.gc.parser.GcLogParserDispatcher;
-import net.szumigaj.gcobs.cli.telemetry.gc.parser.LegacyFallbackGcLogParser;
-import net.szumigaj.gcobs.cli.telemetry.gc.parser.ZgcGcLogParser;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -17,12 +15,14 @@ import java.nio.file.Path;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+@MicronautTest
 class GcAnalyzerTest {
 
-    @TempDir
-    private Path tempDir;
+    @Inject
+    GcAnalyzer analyzer;
 
-    private final GcAnalyzer analyzer = new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new ZgcGcLogParser(), new LegacyFallbackGcLogParser()));
+    @TempDir
+    Path tempDir;
 
     private GcSummary analyzeLog(String logContent) throws IOException {
         Files.writeString(tempDir.resolve("gc.log"), logContent);

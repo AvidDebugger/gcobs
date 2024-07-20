@@ -365,7 +365,7 @@ class BenchmarkExecutorTest {
         return new BenchmarkExecutor(
                 new FakeSourceResolver(),
                 fakeLauncher,
-                new GcAnalyzer(new GcLogParserDispatcher(new G1GcLogParser(), new ZgcGcLogParser(), new LegacyFallbackGcLogParser())),
+                new GcAnalyzer(new GcLogParserDispatcher(List.of(new G1GcLogParser(), new ZgcGcLogParser()), new LegacyFallbackGcLogParser())),
                 new FakeJfrExtractor(),
                 new ArtifactWriter(),
                 new ComparisonEngine(),

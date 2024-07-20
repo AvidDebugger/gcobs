@@ -29,6 +29,11 @@ public class ZgcGcLogParser implements GcLogParserStrategy {
     private static final Pattern FORK_MARKER = Pattern.compile("^# === Fork:");
 
     @Override
+    public boolean supports(GcAlgorithm algorithm) {
+        return algorithm == GcAlgorithm.ZGC;
+    }
+
+    @Override
     public ParserResult parse(BufferedReader input) throws IOException {
         ParserCollector parserCollector = new ParserCollector("ZGC");
         int eventSeq = 0;

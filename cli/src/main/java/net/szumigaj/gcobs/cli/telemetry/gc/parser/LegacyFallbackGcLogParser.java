@@ -13,7 +13,7 @@ import java.util.regex.Pattern;
  * and unknown log formats. G1 and ZGC use dedicated parsers.
  */
 @Singleton
-public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
+public class LegacyFallbackGcLogParser {
 
     // GC Pause events: handles both G1 format (two paren groups) and Parallel/Serial (one paren group)
     private static final Pattern GC_PAUSE = Pattern.compile(
@@ -35,7 +35,6 @@ public class LegacyFallbackGcLogParser implements GcLogParserStrategy {
 
     private static final Pattern FORK_MARKER = Pattern.compile("^# === Fork:");
 
-    @Override
     public ParserResult parse(BufferedReader input) throws IOException {
         ParserCollector parserCollector = new ParserCollector();
         int eventSeq = 0;
