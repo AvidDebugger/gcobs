@@ -1,8 +1,24 @@
 #!/usr/bin/env bash
-GCOBS_HOME="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-CLI_JAR=$(ls "$GCOBS_HOME"/cli/build/libs/gcobs-cli.jar 2>/dev/null | head -1)
-if [[ -n "$CLI_JAR" ]]; then
-    exec java -jar "$CLI_JAR" "$@"
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+GCOBS_HOME="$SCRIPT_DIR"
+
+# If the script is moved into a subdirectory, walk up to the repo root.
+while [[ "$GCOBS_HOME" != "/" && ! -f "$GCOBS_HOME/settings.gradle" ]]; do
+  GCOBS_HOME="$(cd "$GCOBS_HOME/.." && pwd)"
+done
+if [[ ! -f "$GCOBS_HOME/settings.gradle" ]]; then
+  GCOBS_HOME="$SCRIPT_DIR"
 fi
-echo "[gcobs] ERROR: CLI JAR not found. Build with: ./gradlew :cli:shadowJar" >&2
+
+CLI_JAR="$(ls -t "$GCOBS_HOME"/cli/build/libs/*-all.jar "$GCOBS_HOME"/cli/build/libs/*-cli.jar 2>/dev/null | head -n 1 || true)"
+if [[ -n "$CLI_JAR" ]]; then
+  if [[ -n "${JAVA_HOME:-}" && -x "${JAVA_HOME}/bin/java" ]]; then
+    exec "${JAVA_HOME}/bin/java" -jar "$CLI_JAR" "$@"
+  fi
+  exec java -jar "$CLI_JAR" "$@"
+fi
+
+echo "[gcobs] ERROR: CLI JAR not found. Build with: (cd \"$GCOBS_HOME\" && ./gradlew :cli:shadowJar)" >&2
 exit 1
